@@ -52,6 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         {'icon': Icons.category, 'label': 'Kategori', 'route': '/categories', 'color': AppColors.primary},
         {'icon': Icons.business, 'label': 'Supplier', 'route': '/suppliers', 'color': AppColors.primaryDark},
         {'icon': Icons.engineering, 'label': 'Mekanik', 'route': '/mechanics', 'color': AppColors.green},
+        {'icon': Icons.money_off, 'label': 'Pengeluaran', 'route': '/expenses', 'color': AppColors.red},
         {'icon': Icons.bar_chart, 'label': 'Laporan', 'route': '/reports', 'color': AppColors.orange},
       ],
     ];

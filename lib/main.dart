@@ -12,6 +12,7 @@ import 'screens/order/open_bill_screen.dart';
 import 'screens/order/order_list_screen.dart';
 import 'screens/supplier/supplier_list_screen.dart';
 import 'screens/mechanic/mechanic_list_screen.dart';
+import 'screens/expense/expense_list_screen.dart';
 import 'screens/report/report_screen.dart';
 
 void main() {
@@ -39,6 +40,7 @@ class BengkelKuApp extends StatelessWidget {
         '/mechanics': (_) => const MechanicListScreen(),
         '/open-bill': (_) => const OpenBillScreen(),
         '/orders': (_) => const OrderListScreen(),
+        '/expenses': (_) => const ExpenseListScreen(),
         '/reports': (_) => const ReportScreen(),
       },
     );
