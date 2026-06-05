@@ -86,16 +86,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       builder: (_) => _AddItemSheet(
         items: _items,
         categories: _categories,
-        onAdd: (item, qty) async {
+        onAdd: (cart) async {
           Navigator.pop(context);
           setState(() => _loading = true);
           try {
-            await OrderService.addDetail(
-                orderId: _order.orderId, itemId: item.itemId, quantity: qty);
+            for (final entry in cart.entries) {
+              await OrderService.addDetail(
+                orderId: _order.orderId,
+                itemId: entry.key.itemId,
+                quantity: entry.value,
+              );
+            }
             await _refresh();
             if (mounted) {
+              final total = cart.length;
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('${item.itemName} ditambahkan'),
+                content: Text('$total item ditambahkan ke order'),
                 backgroundColor: AppColors.green,
               ));
             }
@@ -406,11 +412,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 }
 
-// Bottom sheet tambah item
+// Bottom sheet tambah item — multi-select dengan cart
 class _AddItemSheet extends StatefulWidget {
   final List<ItemModel> items;
   final List<CategoryModel> categories;
-  final Function(ItemModel, int) onAdd;
+  final Function(Map<ItemModel, int>) onAdd;
   const _AddItemSheet({
     required this.items,
     required this.categories,
@@ -423,12 +429,12 @@ class _AddItemSheet extends StatefulWidget {
 
 class _AddItemSheetState extends State<_AddItemSheet> {
   String _search = '';
-  ItemModel? _selected;
-  int _qty = 1;
-  String _tab = 'all'; // all, sparepart, jasa
+  String _tab = 'all';
   int? _selectedCategoryId;
 
-  // Kategori yang relevan sesuai tab aktif
+  // cart: itemId → {item, qty}
+  final Map<String, MapEntry<ItemModel, int>> _cart = {};
+
   List<CategoryModel> get _visibleCategories {
     if (_tab == 'sparepart') return widget.categories.where((c) => c.itemTypeId == 1).toList();
     if (_tab == 'jasa') return widget.categories.where((c) => c.itemTypeId == 2).toList();
@@ -448,14 +454,39 @@ class _AddItemSheetState extends State<_AddItemSheet> {
     return list;
   }
 
+  int get _cartTotal => _cart.values.fold(0, (sum, e) => sum + e.value);
+
   void _onTabChanged(String tab) {
     setState(() {
       _tab = tab;
       _selectedCategoryId = null;
-      _selected = null;
-      _qty = 1;
     });
   }
+
+  void _tapItem(ItemModel item) {
+    setState(() {
+      if (_cart.containsKey(item.itemId)) {
+        // sudah di cart → tambah qty
+        final current = _cart[item.itemId]!;
+        _cart[item.itemId] = MapEntry(item, current.value + 1);
+      } else {
+        _cart[item.itemId] = MapEntry(item, 1);
+      }
+    });
+  }
+
+  void _setQty(String itemId, int qty) {
+    setState(() {
+      if (qty <= 0) {
+        _cart.remove(itemId);
+      } else {
+        _cart[itemId] = MapEntry(_cart[itemId]!.key, qty);
+      }
+    });
+  }
+
+  Map<ItemModel, int> get _cartAsMap =>
+      {for (final e in _cart.values) e.key: e.value};
 
   @override
   Widget build(BuildContext context) {
@@ -474,10 +505,10 @@ class _AddItemSheetState extends State<_AddItemSheet> {
             child: Container(
               width: 40, height: 4,
               margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                  color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
             ),
           ),
+          // Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(
@@ -490,7 +521,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
             ),
           ),
 
-          // Tabs: Semua / Sparepart / Jasa
+          // Tabs
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
             child: Row(
@@ -525,107 +556,50 @@ class _AddItemSheetState extends State<_AddItemSheet> {
           // Search
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-            child: AppSearchBar(
-                hint: 'Cari item...', onChanged: (v) => setState(() => _search = v)),
+            child: AppSearchBar(hint: 'Cari item...', onChanged: (v) => setState(() => _search = v)),
           ),
 
-          // Selected item controls
-          if (_selected != null)
-            Container(
-              margin: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.green.withAlpha(15),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.green.withAlpha(80)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_selected!.itemName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
-                        Text(rupiah(_selected!.sellingPrice * _qty),
-                            style: const TextStyle(
-                                color: AppColors.green, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle, color: AppColors.red, size: 26),
-                    onPressed: _qty > 1 ? () => setState(() => _qty--) : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 26),
-                    onPressed: () => setState(() => _qty++),
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text('$_qty',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () => widget.onAdd(_selected!, _qty),
-                    child: const Text('Tambah'),
-                  ),
-                ],
-              ),
-            ),
-
-          // List
+          // Item list
           Expanded(
             child: _filtered.isEmpty
                 ? const EmptyState(message: 'Tidak ada item')
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
                     itemCount: _filtered.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (_, i) {
                       final item = _filtered[i];
-                      final isSelected = _selected?.itemId == item.itemId;
-                      return GestureDetector(
-                        onTap: () => setState(() {
-                          _selected = item;
-                          _qty = 1;
-                        }),
-                        child: AppCard(
-                          padding: const EdgeInsets.all(12),
-                          color: isSelected ? AppColors.primary.withAlpha(15) : AppColors.card,
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: (item.isService ? AppColors.orange : AppColors.primary).withAlpha(20),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  item.isService ? Icons.build : Icons.inventory_2,
-                                  size: 18,
-                                  color: item.isService ? AppColors.orange : AppColors.primary,
-                                ),
+                      final inCart = _cart.containsKey(item.itemId);
+                      final qty = inCart ? _cart[item.itemId]!.value : 0;
+                      return AppCard(
+                        padding: const EdgeInsets.all(12),
+                        color: inCart ? AppColors.primary.withAlpha(12) : AppColors.card,
+                        child: Row(
+                          children: [
+                            // Icon
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: (item.isService ? AppColors.orange : AppColors.primary).withAlpha(20),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
+                              child: Icon(
+                                item.isService ? Icons.build : Icons.inventory_2,
+                                size: 18,
+                                color: item.isService ? AppColors.orange : AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Info
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => _tapItem(item),
+                                behavior: HitTestBehavior.opaque,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(item.itemName,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700, fontSize: 13)),
+                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                                     Text(
                                       '${rupiah(item.sellingPrice)}${item.stock != null ? ' • Stok: ${item.stock}' : ' • Jasa'}',
                                       style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
@@ -633,17 +607,75 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                                   ],
                                 ),
                               ),
-                              if (isSelected)
-                                const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
-                              else
-                                const Icon(Icons.add_circle_outline, color: AppColors.textMuted, size: 20),
-                            ],
-                          ),
+                            ),
+                            // Qty control
+                            if (inCart) ...[
+                              GestureDetector(
+                                onTap: () => _setQty(item.itemId, qty - 1),
+                                child: const Icon(Icons.remove_circle, color: AppColors.red, size: 26),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: Text('$qty',
+                                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                              ),
+                              GestureDetector(
+                                onTap: () => _setQty(item.itemId, qty + 1),
+                                child: const Icon(Icons.add_circle, color: AppColors.primary, size: 26),
+                              ),
+                            ] else
+                              GestureDetector(
+                                onTap: () => _tapItem(item),
+                                child: const Icon(Icons.add_circle_outline, color: AppColors.textMuted, size: 26),
+                              ),
+                          ],
                         ),
                       );
                     },
                   ),
           ),
+
+          // Cart summary + tombol tambah
+          if (_cart.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.fromLTRB(18, 8, 18, 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(40),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text('$_cartTotal item',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      rupiah(_cart.values.fold(0.0, (s, e) => s + e.key.sellingPrice * e.value)),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                  ),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => widget.onAdd(_cartAsMap),
+                    child: const Text('Tambahkan', style: TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                ],
+              ),
+            ),
+
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );
@@ -668,5 +700,4 @@ class _AddItemSheetState extends State<_AddItemSheet> {
       ),
     );
   }
-
 }
