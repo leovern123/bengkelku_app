@@ -83,12 +83,6 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Data Pelanggan')),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('Tambah Pelanggan', style: TextStyle(color: Colors.white)),
-        onPressed: () => _openForm(),
-      ),
       body: Column(
         children: [
           Padding(

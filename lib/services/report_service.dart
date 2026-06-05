@@ -60,6 +60,7 @@ class TransactionReport {
   final int itemCount;
   final bool isPaid;
   final String? createdAt;
+  final String? createdByName;
 
   TransactionReport({
     required this.orderId,
@@ -71,12 +72,14 @@ class TransactionReport {
     required this.itemCount,
     required this.isPaid,
     this.createdAt,
+    this.createdByName,
   });
 
   factory TransactionReport.fromJson(Map<String, dynamic> j) {
     final customer = j['customer'];
     final vehicle = j['vehicle'];
     final payment = j['payment'];
+    final user = j['user'];
     return TransactionReport(
       orderId: j['order_id']?.toString() ?? '',
       orderCode: j['order_code']?.toString() ?? '-',
@@ -87,6 +90,7 @@ class TransactionReport {
       itemCount: int.tryParse(j['item_count']?.toString() ?? '0') ?? 0,
       isPaid: payment != null && payment['payment_status'] == 'paid',
       createdAt: j['created_at']?.toString(),
+      createdByName: user?['name']?.toString(),
     );
   }
 }

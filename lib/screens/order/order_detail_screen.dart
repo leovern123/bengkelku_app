@@ -189,21 +189,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         title: Text(_order.orderCode),
         actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh)],
       ),
-      floatingActionButton: _order.canAddItems
-          ? FloatingActionButton.extended(
-              backgroundColor: AppColors.primary,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Tambah Item', style: TextStyle(color: Colors.white)),
-              onPressed: _showAddItem,
-            )
-          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : RefreshIndicator(
               onRefresh: _refresh,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -281,7 +273,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(height: 12),
           if (_order.details.isEmpty)
             const EmptyState(
-              message: 'Belum ada item. Tap "Tambah Item" untuk menambahkan sparepart atau jasa.',
+              message: 'Belum ada item. Tap "Tambah" untuk menambahkan sparepart atau jasa.',
               icon: Icons.build_outlined,
             )
           else
@@ -385,7 +377,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Pending → tombol mulai proses
         if (_order.canProcess) ...[
           PrimaryButton(
             label: 'Mulai Proses Pengerjaan',
@@ -402,7 +393,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
           const SizedBox(height: 10),
         ],
-        // Process → tombol pembayaran
         if (_order.canPay) ...[
           PrimaryButton(
             label: 'Proses Pembayaran',
@@ -464,7 +454,6 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   String _tab = 'all';
   int? _selectedCategoryId;
 
-  // cart: itemId → {item, qty}
   final Map<String, MapEntry<ItemModel, int>> _cart = {};
 
   List<CategoryModel> get _visibleCategories {
@@ -498,7 +487,6 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   void _tapItem(ItemModel item) {
     setState(() {
       if (_cart.containsKey(item.itemId)) {
-        // sudah di cart → tambah qty
         final current = _cart[item.itemId]!;
         _cart[item.itemId] = MapEntry(item, current.value + 1);
       } else {
@@ -608,7 +596,6 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                         color: inCart ? AppColors.primary.withAlpha(12) : AppColors.card,
                         child: Row(
                           children: [
-                            // Icon
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
@@ -622,7 +609,6 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            // Info
                             Expanded(
                               child: GestureDetector(
                                 onTap: () => _tapItem(item),
@@ -640,7 +626,6 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                                 ),
                               ),
                             ),
-                            // Qty control
                             if (inCart) ...[
                               GestureDetector(
                                 onTap: () => _setQty(item.itemId, qty - 1),

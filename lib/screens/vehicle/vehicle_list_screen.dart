@@ -73,14 +73,6 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Data Kendaraan')),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primaryDark,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Tambah Kendaraan', style: TextStyle(color: Colors.white)),
-        onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const VehicleFormScreen()))
-            .then((_) => _load()),
-      ),
       body: Column(
         children: [
           Padding(

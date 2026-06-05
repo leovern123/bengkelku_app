@@ -505,7 +505,7 @@ class _ReportScreenState extends State<ReportScreen>
             height: 200,
             child: _chartLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _chartPoints.isEmpty
+                : (_chartPoints.isEmpty || _chartPoints.every((p) => p.income == 0 && p.modal == 0 && p.expenses == 0))
                     ? const Center(child: Text('Belum ada data', style: TextStyle(color: AppColors.textMuted)))
                     : _buildBarChart(),
           ),
@@ -621,6 +621,8 @@ class _ReportScreenState extends State<ReportScreen>
         _infoRow(Icons.person_outline, t.customerName),
         _infoRow(Icons.directions_car_outlined, t.vehiclePlate),
         _infoRow(Icons.shopping_bag_outlined, '${t.itemCount} item'),
+        if (t.createdByName != null)
+          _infoRow(Icons.badge_outlined, 'Oleh: ${t.createdByName}'),
         const Divider(height: 14),
         Row(children: [
           Text(_fmtDateDisplay(t.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
