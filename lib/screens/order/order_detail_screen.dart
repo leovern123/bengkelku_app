@@ -235,20 +235,50 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildInfo() {
+    final txLabel = _order.isProductSale ? 'Beli Produk Saja' : 'Servis Kendaraan';
+    final txColor = _order.isProductSale ? AppColors.green : AppColors.primary;
+    final txIcon = _order.isProductSale ? Icons.shopping_cart_outlined : Icons.build_outlined;
+
+    final customerName = _order.customer?.customerName ?? _order.customerId;
+    final vehicleLabel = _order.vehicle != null
+        ? '${_order.vehicle!.licensePlate}${_order.vehicle!.brand != null ? ' - ${_order.vehicle!.brand} ${_order.vehicle!.model ?? ''}' : ''}'
+        : _order.vehicleId;
+
     return AppCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(title: 'Informasi Order'),
+          Row(
+            children: [
+              const Expanded(child: SectionTitle(title: 'Informasi Order')),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: txColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(txIcon, size: 12, color: txColor),
+                    const SizedBox(width: 5),
+                    Text(txLabel,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: txColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
-          _row(Icons.person_outline, 'Pelanggan', _order.customer?.customerName ?? _order.customerId),
-          const SizedBox(height: 8),
-          _row(Icons.directions_car_outlined, 'Kendaraan',
-              '${_order.vehicle?.licensePlate ?? _order.vehicleId} ${_order.vehicle?.brand != null ? '- ${_order.vehicle!.brand} ${_order.vehicle?.model ?? ''}' : ''}'),
-          const SizedBox(height: 8),
-          _row(Icons.engineering_outlined, 'Mekanik',
-              _order.mechanic?.mechanicName ?? _order.mechanicId ?? '-'),
+          _row(Icons.person_outline, 'Pelanggan', customerName ?? 'Walk-in Customer'),
+          if (_order.isService) ...[
+            const SizedBox(height: 8),
+            _row(Icons.directions_car_outlined, 'Kendaraan', vehicleLabel ?? '-'),
+            const SizedBox(height: 8),
+            _row(Icons.engineering_outlined, 'Mekanik',
+                _order.mechanic?.mechanicName ?? _order.mechanicId ?? '-'),
+          ],
         ],
       ),
     );

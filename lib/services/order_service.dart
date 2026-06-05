@@ -21,17 +21,19 @@ class OrderService {
   }
 
   static Future<OrderModel> create({
-    required String customerId,
-    required String vehicleId,
+    String? customerId,
+    String? vehicleId,
     required String userId,
     String? mechanicId,
+    String transactionType = 'service',
   }) async {
     final options = await ApiService.authOptions();
     final res = await ApiService.dio.post(
       '/orders',
       data: {
-        'customer_id': customerId,
-        'vehicle_id': vehicleId,
+        'transaction_type': transactionType,
+        if (customerId != null) 'customer_id': customerId,
+        if (vehicleId != null) 'vehicle_id': vehicleId,
         'user_id': userId,
         if (mechanicId != null) 'mechanic_id': mechanicId,
       },
