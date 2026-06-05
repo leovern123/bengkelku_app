@@ -24,6 +24,7 @@ class OrderService {
     required String customerId,
     required String vehicleId,
     required String userId,
+    String? mechanicId,
   }) async {
     final options = await ApiService.authOptions();
     final res = await ApiService.dio.post(
@@ -32,9 +33,17 @@ class OrderService {
         'customer_id': customerId,
         'vehicle_id': vehicleId,
         'user_id': userId,
+        if (mechanicId != null) 'mechanic_id': mechanicId,
       },
       options: options,
     );
+    return OrderModel.fromJson(res.data['data']);
+  }
+
+  static Future<OrderModel> process(String id) async {
+    final options = await ApiService.authOptions();
+    final res =
+        await ApiService.dio.post('/orders/$id/process', options: options);
     return OrderModel.fromJson(res.data['data']);
   }
 

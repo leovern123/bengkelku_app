@@ -1,5 +1,6 @@
 import 'customer_model.dart';
 import 'vehicle_model.dart';
+import 'mechanic_model.dart';
 import 'order_detail_model.dart';
 import 'payment_model.dart';
 
@@ -16,6 +17,7 @@ class OrderModel {
   final String? updatedAt;
   final CustomerModel? customer;
   final VehicleModel? vehicle;
+  final MechanicModel? mechanic;
   final List<OrderDetailModel> details;
   final PaymentModel? payment;
 
@@ -32,6 +34,7 @@ class OrderModel {
     this.updatedAt,
     this.customer,
     this.vehicle,
+    this.mechanic,
     this.details = const [],
     this.payment,
   });
@@ -53,6 +56,9 @@ class OrderModel {
         vehicle: json['vehicle'] != null
             ? VehicleModel.fromJson(json['vehicle'])
             : null,
+        mechanic: json['mechanic'] != null
+            ? MechanicModel.fromJson(json['mechanic'])
+            : null,
         details: json['details'] != null
             ? (json['details'] as List)
                 .map((d) => OrderDetailModel.fromJson(d))
@@ -68,5 +74,6 @@ class OrderModel {
   bool get isCompleted => orderStatus == 'completed';
   bool get isCancelled => orderStatus == 'cancelled';
   bool get canAddItems => isPending || isProcess;
-  bool get canPay => (isPending || isProcess) && payment == null;
+  bool get canProcess => isPending;
+  bool get canPay => isProcess && payment == null;
 }

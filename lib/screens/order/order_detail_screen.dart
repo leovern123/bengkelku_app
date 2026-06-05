@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../models/order_model.dart';
 import '../../models/item_model.dart';
+import '../../models/category_model.dart';
 import '../../services/order_service.dart';
 import '../../services/item_service.dart';
+import '../../services/item_category_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common.dart';
 import '../payment/payment_screen.dart';
@@ -19,6 +21,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late OrderModel _order;
   bool _loading = false;
   List<ItemModel> _items = [];
+  List<CategoryModel> _categories = [];
 
   @override
   void initState() {
@@ -29,7 +32,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _loadItems() async {
     try {
-      _items = await ItemService.getAll();
+      final itemsFuture = ItemService.getAll();
+      final catsFuture = ItemCategoryService.getAll();
+      _items = await itemsFuture;
+      _categories = await catsFuture;
     } catch (_) {}
   }
 
@@ -79,6 +85,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _AddItemSheet(
         items: _items,
+        categories: _categories,
         onAdd: (item, qty) async {
           Navigator.pop(context);
           setState(() => _loading = true);
@@ -209,6 +216,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(height: 8),
           _row(Icons.directions_car_outlined, 'Kendaraan',
               '${_order.vehicle?.licensePlate ?? _order.vehicleId} ${_order.vehicle?.brand != null ? '- ${_order.vehicle!.brand} ${_order.vehicle?.model ?? ''}' : ''}'),
+          const SizedBox(height: 8),
+          _row(Icons.engineering_outlined, 'Mekanik',
+              _order.mechanic?.mechanicName ?? _order.mechanicId ?? '-'),
         ],
       ),
     );
@@ -300,30 +310,72 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  Future<void> _processOrder() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Mulai Proses Pengerjaan'),
+        content: const Text('Tandai order ini sebagai sedang dikerjakan?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ya, Proses', style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _loading = true);
+    try {
+      await OrderService.process(_order.orderId);
+      await _refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Order sedang diproses'), backgroundColor: AppColors.primary));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Gagal memproses order'), backgroundColor: AppColors.red));
+        setState(() => _loading = false);
+      }
+    }
+  }
+
   Widget _buildActions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Pending → tombol mulai proses
+        if (_order.canProcess) ...[
+          PrimaryButton(
+            label: 'Mulai Proses Pengerjaan',
+            icon: Icons.build_circle_outlined,
+            color: AppColors.primary,
+            onPressed: _order.details.isEmpty ? null : _processOrder,
+          ),
+          if (_order.details.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('Tambahkan item terlebih dahulu sebelum memproses',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: AppColors.orange)),
+            ),
+          const SizedBox(height: 10),
+        ],
+        // Process → tombol pembayaran
         if (_order.canPay) ...[
           PrimaryButton(
             label: 'Proses Pembayaran',
             icon: Icons.payment,
             color: AppColors.green,
-            onPressed: _order.details.isEmpty
-                ? null
-                : () async {
-                    await Navigator.push(
-                        context, MaterialPageRoute(builder: (_) => PaymentScreen(order: _order)));
-                    _refresh();
-                  },
+            onPressed: () async {
+              await Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => PaymentScreen(order: _order)));
+              _refresh();
+            },
           ),
-          if (_order.details.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Text('Tambahkan item terlebih dahulu sebelum bayar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: AppColors.orange)),
-            ),
           const SizedBox(height: 10),
         ],
         OutlinedButton.icon(
@@ -357,8 +409,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 // Bottom sheet tambah item
 class _AddItemSheet extends StatefulWidget {
   final List<ItemModel> items;
+  final List<CategoryModel> categories;
   final Function(ItemModel, int) onAdd;
-  const _AddItemSheet({required this.items, required this.onAdd});
+  const _AddItemSheet({
+    required this.items,
+    required this.categories,
+    required this.onAdd,
+  });
 
   @override
   State<_AddItemSheet> createState() => _AddItemSheetState();
@@ -369,21 +426,43 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   ItemModel? _selected;
   int _qty = 1;
   String _tab = 'all'; // all, sparepart, jasa
+  int? _selectedCategoryId;
+
+  // Kategori yang relevan sesuai tab aktif
+  List<CategoryModel> get _visibleCategories {
+    if (_tab == 'sparepart') return widget.categories.where((c) => c.itemTypeId == 1).toList();
+    if (_tab == 'jasa') return widget.categories.where((c) => c.itemTypeId == 2).toList();
+    return widget.categories;
+  }
 
   List<ItemModel> get _filtered {
     var list = widget.items;
     if (_tab == 'sparepart') list = list.where((i) => !i.isService).toList();
     if (_tab == 'jasa') list = list.where((i) => i.isService).toList();
+    if (_selectedCategoryId != null) {
+      list = list.where((i) => i.itemCategoryId == _selectedCategoryId).toList();
+    }
     if (_search.isNotEmpty) {
       list = list.where((i) => i.itemName.toLowerCase().contains(_search.toLowerCase())).toList();
     }
     return list;
   }
 
+  void _onTabChanged(String tab) {
+    setState(() {
+      _tab = tab;
+      _selectedCategoryId = null;
+      _selected = null;
+      _qty = 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cats = _visibleCategories;
+
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.of(context).size.height * 0.88,
       decoration: const BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -393,8 +472,10 @@ class _AddItemSheetState extends State<_AddItemSheet> {
           // Handle
           Center(
             child: Container(
-              width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+              width: 40, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                  color: AppColors.border, borderRadius: BorderRadius.circular(2)),
             ),
           ),
           Padding(
@@ -408,9 +489,10 @@ class _AddItemSheetState extends State<_AddItemSheet> {
               ],
             ),
           ),
-          // Tabs
+
+          // Tabs: Semua / Sparepart / Jasa
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
             child: Row(
               children: [
                 _tabBtn('all', 'Semua'),
@@ -421,11 +503,32 @@ class _AddItemSheetState extends State<_AddItemSheet> {
               ],
             ),
           ),
+
+          // Category dropdown
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+            child: DropdownButtonFormField<int?>(
+              initialValue: _selectedCategoryId,
+              decoration: const InputDecoration(
+                hintText: 'Semua Kategori',
+                prefixIcon: Icon(Icons.category_outlined, color: AppColors.textMuted),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Semua Kategori')),
+                ...cats.map((c) => DropdownMenuItem(value: c.itemCategoryId, child: Text(c.categoryName))),
+              ],
+              onChanged: (v) => setState(() => _selectedCategoryId = v),
+            ),
+          ),
+
           // Search
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-            child: AppSearchBar(hint: 'Cari item...', onChanged: (v) => setState(() => _search = v)),
+            child: AppSearchBar(
+                hint: 'Cari item...', onChanged: (v) => setState(() => _search = v)),
           ),
+
           // Selected item controls
           if (_selected != null)
             Container(
@@ -443,9 +546,11 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(_selected!.itemName,
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
                         Text(rupiah(_selected!.sellingPrice * _qty),
-                            style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w700)),
+                            style: const TextStyle(
+                                color: AppColors.green, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -453,8 +558,13 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                     icon: const Icon(Icons.remove_circle, color: AppColors.red, size: 26),
                     onPressed: _qty > 1 ? () => setState(() => _qty--) : null,
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 26),
+                    onPressed: () => setState(() => _qty++),
+                  ),
+                  const SizedBox(width: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       border: Border.all(color: AppColors.border),
                       borderRadius: BorderRadius.circular(8),
@@ -462,17 +572,19 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                     child: Text('$_qty',
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   ),
+                  const SizedBox(width: 8),
                   FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () => widget.onAdd(_selected!, _qty),
-                    child: const Text('+  Tambahkan'),
+                    child: const Text('Tambah'),
                   ),
                 ],
               ),
             ),
+
           // List
           Expanded(
             child: _filtered.isEmpty
@@ -512,7 +624,8 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(item.itemName,
-                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700, fontSize: 13)),
                                     Text(
                                       '${rupiah(item.sellingPrice)}${item.stock != null ? ' • Stok: ${item.stock}' : ' • Jasa'}',
                                       style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
@@ -539,7 +652,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   Widget _tabBtn(String key, String label) {
     final active = _tab == key;
     return GestureDetector(
-      onTap: () => setState(() => _tab = key),
+      onTap: () => _onTabChanged(key),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
@@ -555,4 +668,5 @@ class _AddItemSheetState extends State<_AddItemSheet> {
       ),
     );
   }
+
 }
