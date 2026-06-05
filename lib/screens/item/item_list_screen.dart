@@ -151,6 +151,17 @@ class _ItemListScreenState extends State<ItemListScreen> {
                                           Text(rupiah(item.sellingPrice),
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.price_change_outlined, size: 11, color: AppColors.textMuted),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                'Modal: ${rupiah(item.purchasePrice)}',
+                                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                              ),
+                                            ],
+                                          ),
                                           if (!item.isService && item.supplierId != null) ...[
                                             const SizedBox(height: 2),
                                             Row(

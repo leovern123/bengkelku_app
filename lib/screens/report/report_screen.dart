@@ -222,6 +222,9 @@ class _ReportScreenState extends State<ReportScreen>
           controller: _tab,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Ringkasan'),
             Tab(text: 'Transaksi'),
