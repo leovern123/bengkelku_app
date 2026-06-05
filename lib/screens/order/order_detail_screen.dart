@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../../models/order_model.dart';
 import '../../models/item_model.dart';
 import '../../models/category_model.dart';
@@ -89,28 +90,59 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         onAdd: (cart) async {
           Navigator.pop(context);
           setState(() => _loading = true);
-          try {
-            for (final entry in cart.entries) {
-              await OrderService.addDetail(
-                orderId: _order.orderId,
-                itemId: entry.key.itemId,
-                quantity: entry.value,
-              );
+          final List<String> errors = [];
+          int successCount = 0;
+
+          for (final entry in cart.entries) {
+            final item = entry.key;
+            final addedQty = entry.value;
+            try {
+              final existing = _order.details
+                  .where((d) => d.itemId == item.itemId)
+                  .firstOrNull;
+              if (existing != null) {
+                await OrderService.updateDetail(
+                    existing.orderDetailId, existing.quantity + addedQty);
+              } else {
+                await OrderService.addDetail(
+                  orderId: _order.orderId,
+                  itemId: item.itemId,
+                  quantity: addedQty,
+                );
+              }
+              successCount++;
+            } catch (e) {
+              String msg = item.itemName;
+              if (e is DioException && e.response != null) {
+                final data = e.response!.data;
+                if (data is Map) {
+                  final errs = data['errors'];
+                  if (errs is Map) {
+                    msg += ': ${errs.values.expand((v) => v is List ? v : [v]).join(', ')}';
+                  } else {
+                    msg += ': ${data['message'] ?? 'error'}';
+                  }
+                }
+              }
+              errors.add(msg);
             }
-            await _refresh();
-            if (mounted) {
-              final total = cart.length;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('$total item ditambahkan ke order'),
-                backgroundColor: AppColors.green,
-              ));
-            }
-          } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Gagal: $e'), backgroundColor: AppColors.red));
-              setState(() => _loading = false);
-            }
+          }
+
+          await _refresh();
+          if (!mounted) return;
+
+          if (successCount > 0) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('$successCount item ditambahkan ke order'),
+              backgroundColor: AppColors.green,
+            ));
+          }
+          if (errors.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Gagal: ${errors.join('\n')}'),
+              backgroundColor: AppColors.red,
+              duration: const Duration(seconds: 5),
+            ));
           }
         },
       ),
