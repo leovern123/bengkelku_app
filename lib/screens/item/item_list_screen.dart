@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../../models/item_model.dart';
 import '../../models/user_model.dart';
 import '../../services/item_service.dart';
+import '../../services/supplier_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common.dart';
 import 'item_form_screen.dart';
@@ -17,6 +18,7 @@ class ItemListScreen extends StatefulWidget {
 
 class _ItemListScreenState extends State<ItemListScreen> {
   List<ItemModel> _all = [];
+  Map<String, String> _supplierMap = {};
   bool _loading = true;
   String _search = '';
   String _tab = 'all';
@@ -41,7 +43,16 @@ class _ItemListScreenState extends State<ItemListScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      _all = await ItemService.getAll();
+      final itemsFuture = ItemService.getAll();
+      final suppliersFuture = SupplierService.getAll();
+      final items = await itemsFuture;
+      final suppliers = await suppliersFuture;
+      if (mounted) {
+        setState(() {
+          _all = items;
+          _supplierMap = {for (final s in suppliers) s.supplierId: s.supplierName};
+        });
+      }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
@@ -140,6 +151,22 @@ class _ItemListScreenState extends State<ItemListScreen> {
                                           Text(rupiah(item.sellingPrice),
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
+                                          if (!item.isService && item.supplierId != null) ...[
+                                            const SizedBox(height: 2),
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.business_outlined, size: 11, color: AppColors.textMuted),
+                                                const SizedBox(width: 3),
+                                                Flexible(
+                                                  child: Text(
+                                                    _supplierMap[item.supplierId] ?? item.supplierId!,
+                                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),
@@ -195,9 +222,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
                                                 await ItemService.delete(item.itemId);
                                                 _load();
                                               } catch (_) {
-                                                if (mounted) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal menghapus data'), backgroundColor: Colors.red));
-                                                }
+                                                if (!context.mounted) return;
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal menghapus data'), backgroundColor: Colors.red));
                                               }
                                             }
                                           }
