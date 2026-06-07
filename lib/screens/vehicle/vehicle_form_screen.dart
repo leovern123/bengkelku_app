@@ -187,7 +187,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                             controller: _modelCtrl,
                             decoration: const InputDecoration(
                               labelText: 'Model (opsional)',
-                              prefixIcon: Icon(Icons.directions_car_outlined, color: AppColors.textMuted),
+                              prefixIcon: Icon(Icons.two_wheeler, color: AppColors.textMuted),
                             ),
                           ),
                         ],

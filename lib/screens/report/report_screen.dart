@@ -681,7 +681,7 @@ class _ReportScreenState extends State<ReportScreen>
         ]),
         const SizedBox(height: 6),
         _infoRow(Icons.person_outline, t.customerName),
-        _infoRow(Icons.directions_car_outlined, t.vehiclePlate),
+        _infoRow(Icons.two_wheeler, t.vehiclePlate),
         _infoRow(Icons.shopping_bag_outlined, '${t.itemCount} item'),
         if (t.createdByName != null)
           _infoRow(Icons.badge_outlined, 'Oleh: ${t.createdByName}'),

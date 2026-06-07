@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../../models/order_model.dart';
 import '../../models/item_model.dart';
 import '../../models/category_model.dart';
@@ -7,6 +9,7 @@ import '../../services/order_service.dart';
 import '../../services/item_service.dart';
 import '../../services/item_category_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/pdf_export.dart';
 import '../../widgets/common.dart';
 import '../payment/payment_screen.dart';
 
@@ -210,6 +213,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       const SizedBox(height: 20),
                       _buildActions(),
                     ],
+                    if (_order.isCompleted && _order.payment != null) ...[
+                      const SizedBox(height: 20),
+                      PrimaryButton(
+                        label: 'Cetak Struk',
+                        icon: Icons.print_outlined,
+                        color: AppColors.primary,
+                        onPressed: _printStruk,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -274,7 +286,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _row(Icons.person_outline, 'Pelanggan', customerName ?? 'Walk-in Customer'),
           if (_order.isService) ...[
             const SizedBox(height: 8),
-            _row(Icons.directions_car_outlined, 'Kendaraan', vehicleLabel ?? '-'),
+            _row(Icons.two_wheeler, 'Kendaraan', vehicleLabel ?? '-'),
             const SizedBox(height: 8),
             _row(Icons.engineering_outlined, 'Mekanik',
                 _order.mechanic?.mechanicName ?? _order.mechanicId ?? '-'),
@@ -353,6 +365,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _printStruk() async {
+    if (_order.payment == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = jsonDecode(prefs.getString('user_data') ?? '{}');
+      final kasir = data['name']?.toString() ?? '-';
+      await exportStruk(_order, _order.payment!, kasir: kasir);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Gagal mencetak struk'), backgroundColor: AppColors.red));
+      }
+    }
   }
 
   Widget _buildTotal() {

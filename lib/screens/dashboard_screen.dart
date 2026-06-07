@@ -46,7 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       {'icon': Icons.receipt_long, 'label': 'Open Bill', 'route': '/open-bill', 'color': AppColors.orange},
       {'icon': Icons.history, 'label': 'Riwayat Order', 'route': '/orders', 'color': AppColors.primaryDark},
       {'icon': Icons.people, 'label': 'Pelanggan', 'route': '/customers', 'color': AppColors.primary},
-      {'icon': Icons.directions_car, 'label': 'Kendaraan', 'route': '/vehicles', 'color': AppColors.primaryDark},
+      {'icon': Icons.two_wheeler, 'label': 'Kendaraan', 'route': '/vehicles', 'color': AppColors.primaryDark},
       {'icon': Icons.inventory_2, 'label': 'Produk', 'route': '/items', 'color': AppColors.green},
       if (isAdmin) ...[
         {'icon': Icons.category, 'label': 'Kategori', 'route': '/categories', 'color': AppColors.primary},

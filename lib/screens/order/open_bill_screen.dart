@@ -492,7 +492,7 @@ class _OpenBillScreenState extends State<OpenBillScreen> {
               initialValue: _selectedVehicle,
               decoration: InputDecoration(
                 hintText: _selectedCustomer == null ? 'Pilih pelanggan dulu' : 'Pilih kendaraan',
-                prefixIcon: const Icon(Icons.directions_car_outlined, color: AppColors.textMuted),
+                prefixIcon: const Icon(Icons.two_wheeler, color: AppColors.textMuted),
               ),
               items: _vehicles
                   .map((v) => DropdownMenuItem(value: v, child: Text(v.displayName)))
@@ -747,7 +747,7 @@ class _OpenBillScreenState extends State<OpenBillScreen> {
           textCapitalization: TextCapitalization.characters,
           decoration: const InputDecoration(
             labelText: 'Plat Nomor',
-            prefixIcon: Icon(Icons.directions_car_outlined, color: AppColors.textMuted),
+            prefixIcon: Icon(Icons.two_wheeler, color: AppColors.textMuted),
           ),
           onChanged: (_) => setState(() {}),
           validator: (v) =>
@@ -768,7 +768,7 @@ class _OpenBillScreenState extends State<OpenBillScreen> {
           controller: _modelCtrl,
           decoration: const InputDecoration(
             labelText: 'Tipe/Model (opsional)',
-            prefixIcon: Icon(Icons.car_repair_outlined, color: AppColors.textMuted),
+            prefixIcon: Icon(Icons.two_wheeler, color: AppColors.textMuted),
           ),
         ),
       ],

@@ -38,7 +38,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       appBar: AppBar(title: Text(widget.customer.customerName)),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.directions_car, color: Colors.white),
+        icon: const Icon(Icons.two_wheeler, color: Colors.white),
         label: const Text('Tambah Kendaraan', style: TextStyle(color: Colors.white)),
         onPressed: () => Navigator.push(
           context,
@@ -93,7 +93,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               const Center(child: CircularProgressIndicator(color: AppColors.primary))
             else if (_vehicles.isEmpty)
               const EmptyState(
-                  message: 'Belum ada kendaraan terdaftar', icon: Icons.directions_car_outlined)
+                  message: 'Belum ada kendaraan terdaftar', icon: Icons.two_wheeler_outlined)
             else
               ...List.generate(_vehicles.length, (i) {
                 final v = _vehicles[i];
@@ -109,7 +109,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             color: AppColors.primaryDark.withAlpha(20),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.directions_car, color: AppColors.primaryDark, size: 24),
+                          child: const Icon(Icons.two_wheeler, color: AppColors.primaryDark, size: 24),
                         ),
                         const SizedBox(width: 14),
                         Expanded(

@@ -381,8 +381,8 @@ Future<void> exportStok(List<StockReport> list) async {
           ...list.asMap().entries.map((e) {
             final s = e.value;
             PdfColor? stockColor;
-            if (s.isLow) stockColor = _red;
-            else if (s.isWarning) stockColor = _orange;
+            if (s.isLow) { stockColor = _red; }
+            else if (s.isWarning) { stockColor = _orange; }
             return _tableRow([
               s.itemName,
               s.categoryName,
@@ -477,7 +477,7 @@ Future<void> exportStruk(OrderModel order, PaymentModel payment,
                       fontSize: 14,
                       fontWeight: pw.FontWeight.bold,
                       color: _primaryDark)),
-              pw.Text('Nota Servis',
+              pw.Text('Nota Bengkel Motor',
                   style: const pw.TextStyle(fontSize: 9, color: _textMuted)),
             ]),
           ),
@@ -491,6 +491,8 @@ Future<void> exportStruk(OrderModel order, PaymentModel payment,
             _kv('Pelanggan', order.customer!.customerName),
           if (order.vehicle != null)
             _kv('Kendaraan', order.vehicle!.licensePlate),
+          if (order.mechanic != null)
+            _kv('Mekanik', order.mechanic!.mechanicName),
           pw.SizedBox(height: 6),
           _divider(),
           pw.SizedBox(height: 6),

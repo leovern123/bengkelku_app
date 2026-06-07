@@ -77,13 +77,13 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               children: [
                 // Icon & Title
-                const Icon(Icons.car_repair, size: 86, color: AppColors.primaryDark),
+                const Icon(Icons.two_wheeler, size: 86, color: AppColors.primaryDark),
                 const SizedBox(height: 12),
                 const Text('BENGKELKU',
                     style: TextStyle(
                         fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.primaryDark)),
                 const SizedBox(height: 4),
-                const Text('Solusi Manajemen Bengkel',
+                const Text('Solusi Manajemen Bengkel Motor',
                     style: TextStyle(fontSize: 14, color: AppColors.textMuted)),
                 const SizedBox(height: 32),
 

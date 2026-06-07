@@ -86,7 +86,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: _filtered.isEmpty
-                        ? const EmptyState(message: 'Tidak ada kendaraan', icon: Icons.directions_car_outlined)
+                        ? const EmptyState(message: 'Tidak ada kendaraan', icon: Icons.two_wheeler_outlined)
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(18, 0, 18, 100),
                             itemCount: _filtered.length,
@@ -103,7 +103,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                                         color: AppColors.primaryDark.withAlpha(20),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: const Icon(Icons.directions_car, color: AppColors.primaryDark, size: 24),
+                                      child: const Icon(Icons.two_wheeler, color: AppColors.primaryDark, size: 24),
                                     ),
                                     const SizedBox(width: 14),
                                     Expanded(

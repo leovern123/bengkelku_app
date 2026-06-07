@@ -106,11 +106,11 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   // Header
                   const Column(
                     children: [
-                      Icon(Icons.car_repair, size: 40, color: AppColors.primaryDark),
+                      Icon(Icons.two_wheeler, size: 40, color: AppColors.primaryDark),
                       SizedBox(height: 6),
                       Text('BENGKELKU',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primaryDark)),
-                      Text('Nota Servis',
+                      Text('Nota Bengkel Motor',
                           style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                     ],
                   ),
@@ -165,6 +165,13 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
             ),
             const SizedBox(height: 16),
 
+            PrimaryButton(
+              label: 'Cetak Ulang Nota',
+              icon: Icons.print_outlined,
+              color: AppColors.primary,
+              onPressed: _cetakUlang,
+            ),
+            const SizedBox(height: 10),
             PrimaryButton(
               label: 'Order Lagi',
               icon: Icons.receipt_long,

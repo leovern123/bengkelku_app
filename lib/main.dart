@@ -77,12 +77,12 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.car_repair, size: 80, color: Colors.white),
+            Icon(Icons.two_wheeler, size: 80, color: Colors.white),
             SizedBox(height: 16),
             Text('BENGKELKU',
                 style: TextStyle(
                     fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2)),
-            Text('Solusi Manajemen Bengkel',
+            Text('Solusi Manajemen Bengkel Motor',
                 style: TextStyle(color: Colors.white70, fontSize: 13)),
             SizedBox(height: 32),
             CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
