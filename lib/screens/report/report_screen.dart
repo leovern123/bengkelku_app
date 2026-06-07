@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../services/report_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/pdf_export.dart';
 import '../../widgets/common.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -37,6 +38,8 @@ class _ReportScreenState extends State<ReportScreen>
   List<ChartPoint> _chartPoints = [];
   bool _chartLoading = true;
   String _chartPeriod = 'monthly';
+
+  bool _exporting = false;
   int _chartYear = DateTime.now().year;
   int _chartMonth = DateTime.now().month;
 
@@ -191,6 +194,48 @@ class _ReportScreenState extends State<ReportScreen>
     return _chartYear < now.year;
   }
 
+  // ── Period label ───────────────────────────────────────────────────────
+
+  String? get _periodLabel {
+    if (_filterYear == null) return null;
+    if (_filterMonth == null) return '$_filterYear';
+    if (_filterDay == null) return '${_monthFull[_filterMonth! - 1]} $_filterYear';
+    return '$_filterDay ${_monthFull[_filterMonth! - 1]} $_filterYear';
+  }
+
+  // ── Export ─────────────────────────────────────────────────────────────
+
+  Future<void> _exportByTab() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      switch (_tab.index) {
+        case 0:
+          if (_summary != null) await exportRingkasan(_summary!, period: _periodLabel);
+          break;
+        case 1:
+          await exportTransaksi(_transactions, period: _periodLabel);
+          break;
+        case 2:
+          await exportPembayaran(_payments, period: _periodLabel);
+          break;
+        case 3:
+          await exportStok(_stocks);
+          break;
+        case 4:
+          if (_summary != null) await exportKeuntungan(_summary!, period: _periodLabel);
+          break;
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Gagal mengekspor laporan'),
+            backgroundColor: AppColors.red));
+      }
+    }
+    if (mounted) setState(() => _exporting = false);
+  }
+
   // ── Y-axis formatter ───────────────────────────────────────────────────
 
   String _fmtY(double v) {
@@ -218,6 +263,20 @@ class _ReportScreenState extends State<ReportScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Laporan'),
+        actions: [
+          _exporting
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)))
+              : IconButton(
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  tooltip: 'Export PDF',
+                  onPressed: _exportByTab,
+                ),
+        ],
         bottom: TabBar(
           controller: _tab,
           isScrollable: true,

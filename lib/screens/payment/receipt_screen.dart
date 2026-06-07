@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../../models/order_model.dart';
 import '../../models/payment_model.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/pdf_export.dart';
 import '../../widgets/common.dart';
 
 class ReceiptScreen extends StatefulWidget {
@@ -27,7 +28,16 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
   Future<void> _loadKasir() async {
     final prefs = await SharedPreferences.getInstance();
     final data = jsonDecode(prefs.getString('user_data') ?? '{}');
-    if (mounted) setState(() => _kasir = data['name'] ?? '-');
+    final name = data['name'] ?? '-';
+    if (mounted) {
+      setState(() => _kasir = name);
+      // Auto-cetak nota setelah layar terbuka
+      await exportStruk(widget.order, widget.payment, kasir: name);
+    }
+  }
+
+  Future<void> _cetakUlang() async {
+    await exportStruk(widget.order, widget.payment, kasir: _kasir);
   }
 
   String _formatDate(String? dt) {
