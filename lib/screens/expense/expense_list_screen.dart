@@ -93,10 +93,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Pengeluaran')),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _openForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('Tambah'),
+        child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -132,8 +131,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       ? EmptyState(
                           icon: Icons.money_off_outlined,
                           message: _search.isEmpty ? 'Belum ada pengeluaran' : 'Tidak ditemukan',
-                          buttonLabel: _search.isEmpty ? 'Tambah Pengeluaran' : null,
-                          onButton: _search.isEmpty ? () => _openForm() : null,
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),

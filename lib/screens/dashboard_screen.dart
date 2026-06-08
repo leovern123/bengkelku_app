@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/user_model.dart';
+import '../models/order_model.dart';
 import '../services/auth_service.dart';
+import '../services/order_service.dart';
+import '../services/report_service.dart';
 import '../utils/app_colors.dart';
 import '../widgets/common.dart';
+import 'order/order_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,10 +20,26 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   UserModel? _user;
 
+  // Stats
+  int _pending = 0;
+  int _process = 0;
+  int _completed = 0;
+  double _income = 0;
+  List<OrderModel> _recentOrders = [];
+
+  // Notifications
+  List<StockReport> _lowStock = [];
+  List<OrderModel> _pendingOrders = [];
+  List<OrderModel> _processOrders = [];
+  int get _notifCount => _lowStock.length + _pendingOrders.length;
+
+  bool _loadingStats = true;
+
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadStats();
   }
 
   Future<void> _loadUser() async {
@@ -28,6 +48,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (data != null && mounted) {
       setState(() => _user = UserModel.fromJson(jsonDecode(data)));
     }
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _loadingStats = true);
+
+    // Load orders (all roles)
+    OrderService.getAll().then((orders) {
+      if (!mounted) return;
+      setState(() {
+        _pending = orders.where((o) => o.orderStatus == 'pending').length;
+        _process = orders.where((o) => o.orderStatus == 'process').length;
+        _completed = orders.where((o) => o.orderStatus == 'completed').length;
+        _recentOrders = orders.take(5).toList();
+        _pendingOrders = orders.where((o) => o.orderStatus == 'pending').toList();
+        _processOrders = orders.where((o) => o.orderStatus == 'process').toList();
+        _loadingStats = false;
+      });
+    }).catchError((_) {
+      if (mounted) setState(() => _loadingStats = false);
+    });
+
+    // Load income summary (admin only — will fail silently for kasir)
+    ReportService.getSummary().then((summary) {
+      if (!mounted) return;
+      setState(() => _income = summary.totalIncome);
+    }).catchError((_) {});
+
+    // Load stock alerts
+    ReportService.getStock().then((stock) {
+      if (!mounted) return;
+      setState(() => _lowStock = stock.where((s) => s.isLow).toList());
+    }).catchError((_) {});
   }
 
   Future<void> _logout() async {
@@ -39,9 +91,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         content: const Text('Yakin ingin keluar dari aplikasi?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
@@ -61,13 +112,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
+  void _showNotifications() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NotificationSheet(
+        lowStock: _lowStock,
+        pendingOrders: _pendingOrders,
+        processOrders: _processOrders,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAdmin = _user?.isAdmin ?? false;
 
     final menus = <Map<String, dynamic>>[
       {'icon': Icons.receipt_long_rounded, 'label': 'Open Bill', 'route': '/open-bill', 'color': AppColors.orange},
-      {'icon': Icons.history_rounded, 'label': 'Riwayat Order', 'route': '/orders', 'color': AppColors.primaryDark},
+      {'icon': Icons.history_rounded, 'label': 'Riwayat', 'route': '/orders', 'color': AppColors.primaryDark},
       {'icon': Icons.people_rounded, 'label': 'Pelanggan', 'route': '/customers', 'color': AppColors.primary},
       {'icon': Icons.two_wheeler_rounded, 'label': 'Kendaraan', 'route': '/vehicles', 'color': AppColors.primaryDark},
       {'icon': Icons.inventory_2_rounded, 'label': 'Produk', 'route': '/items', 'color': AppColors.green},
@@ -82,112 +146,212 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 180,
-            pinned: true,
-            automaticallyImplyLeading: false,
-            backgroundColor: AppColors.primaryDark,
-            elevation: 0,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                tooltip: 'Keluar',
-                onPressed: _logout,
-              ),
-              const SizedBox(width: 4),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primaryDark, AppColors.primary],
-                  ),
+      body: RefreshIndicator(
+        onRefresh: _loadStats,
+        child: CustomScrollView(
+          slivers: [
+            // ── Header ────────────────────────────────────────────────────
+            SliverAppBar(
+              expandedHeight: 175,
+              pinned: true,
+              automaticallyImplyLeading: false,
+              backgroundColor: AppColors.primaryDark,
+              elevation: 0,
+              actions: [
+                // Notification bell with badge
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                      onPressed: _showNotifications,
+                    ),
+                    if (_notifCount > 0)
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          width: 17,
+                          height: 17,
+                          decoration: BoxDecoration(
+                            color: AppColors.red,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.primaryDark, width: 1.5),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _notifCount > 9 ? '9+' : '$_notifCount',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(25),
-                                borderRadius: BorderRadius.circular(14),
+                IconButton(
+                  icon: const Icon(Icons.logout_rounded, color: Colors.white),
+                  tooltip: 'Keluar',
+                  onPressed: _logout,
+                ),
+                const SizedBox(width: 4),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.primaryDark, AppColors.primary],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withAlpha(25),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(
+                                  isAdmin
+                                      ? Icons.admin_panel_settings_rounded
+                                      : Icons.point_of_sale_rounded,
+                                  color: Colors.white,
+                                  size: 26,
+                                ),
                               ),
-                              child: Icon(
-                                isAdmin ? Icons.admin_panel_settings_rounded : Icons.point_of_sale_rounded,
-                                color: Colors.white,
-                                size: 26,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Selamat datang,',
+                                        style: TextStyle(
+                                            fontSize: 12, color: Colors.white70)),
+                                    Text(
+                                      _user?.name ?? '-',
+                                      style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Selamat datang,',
-                                      style: TextStyle(fontSize: 12, color: Colors.white70)),
-                                  Text(
-                                    _user?.name ?? '-',
-                                    style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white),
-                                  ),
-                                ],
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: isAdmin
+                                      ? AppColors.orange.withAlpha(200)
+                                      : Colors.white.withAlpha(35),
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                                child: Text(
+                                  isAdmin ? 'ADMIN' : 'KASIR',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5),
+                                ),
                               ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isAdmin
-                                    ? AppColors.orange.withAlpha(200)
-                                    : Colors.white.withAlpha(40),
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              child: Text(
-                                isAdmin ? 'ADMIN' : 'KASIR',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _user?.email ?? '',
-                          style: const TextStyle(fontSize: 12, color: Colors.white54),
-                        ),
-                      ],
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _user?.email ?? '',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.white54),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(18, 20, 18, 120),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SectionTitle(title: 'Menu Utama'),
-                  const SizedBox(height: 14),
+
+            // ── Content ───────────────────────────────────────────────────
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // ── Stat Cards ─────────────────────────────────────────
+                  _loadingStats
+                      ? const SizedBox(
+                          height: 88,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.primary, strokeWidth: 2),
+                          ),
+                        )
+                      : _StatsRow(
+                          pending: _pending,
+                          process: _process,
+                          completed: _completed,
+                          income: isAdmin ? _income : null,
+                        ),
+                  const SizedBox(height: 20),
+
+                  // ── Alert Banner ───────────────────────────────────────
+                  if (_notifCount > 0) ...[
+                    _AlertBanner(
+                      notifCount: _notifCount,
+                      lowStockCount: _lowStock.length,
+                      pendingCount: _pendingOrders.length,
+                      onTap: _showNotifications,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // ── Recent Orders ──────────────────────────────────────
+                  if (_recentOrders.isNotEmpty) ...[
+                    SectionTitle(
+                      title: 'Order Terbaru',
+                      action: TextButton(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/orders'),
+                        child: const Text('Lihat Semua',
+                            style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ..._recentOrders.map((o) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _RecentOrderCard(
+                            order: o,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => OrderDetailScreen(order: o)),
+                            ).then((_) => _loadStats()),
+                          ),
+                        )),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // ── Menu Grid ──────────────────────────────────────────
+                  const SectionTitle(title: 'Menu'),
+                  const SizedBox(height: 12),
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       childAspectRatio: 0.92,
                       mainAxisSpacing: 12,
@@ -200,7 +364,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       return AppCard(
                         padding: EdgeInsets.zero,
                         borderRadius: 16,
-                        onTap: () => Navigator.pushNamed(context, m['route'] as String),
+                        onTap: () =>
+                            Navigator.pushNamed(context, m['route'] as String),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -208,10 +373,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               width: 52,
                               height: 52,
                               decoration: BoxDecoration(
-                                color: color.withAlpha(22),
+                                color: color.withAlpha(20),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Icon(m['icon'] as IconData, color: color, size: 26),
+                              child: Icon(m['icon'] as IconData,
+                                  color: color, size: 26),
                             ),
                             const SizedBox(height: 10),
                             Text(
@@ -229,10 +395,539 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       );
                     },
                   ),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Stat Cards Row ─────────────────────────────────────────────────────────
+
+class _StatsRow extends StatelessWidget {
+  final int pending;
+  final int process;
+  final int completed;
+  final double? income;
+
+  const _StatsRow({
+    required this.pending,
+    required this.process,
+    required this.completed,
+    this.income,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = [
+      _StatData('Pending', '$pending', AppColors.primary, Icons.hourglass_top_rounded),
+      _StatData('Diproses', '$process', AppColors.orange, Icons.build_circle_rounded),
+      _StatData('Selesai', '$completed', AppColors.green, Icons.check_circle_rounded),
+      if (income != null)
+        _StatData('Pendapatan', rupiah(income!), AppColors.primaryDark,
+            Icons.payments_rounded, isSmallText: true),
+    ];
+
+    return SizedBox(
+      height: 90,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: cards.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, i) {
+          final d = cards[i];
+          return Container(
+            width: income != null ? 130 : 100,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: d.color.withAlpha(12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: d.color.withAlpha(40)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(d.label,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: d.color)),
+                    Icon(d.icon, size: 16, color: d.color.withAlpha(160)),
+                  ],
+                ),
+                Text(
+                  d.value,
+                  style: TextStyle(
+                    fontSize: d.isSmallText ? 14 : 26,
+                    fontWeight: FontWeight.w900,
+                    color: d.color,
+                    height: 1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StatData {
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+  final bool isSmallText;
+
+  const _StatData(this.label, this.value, this.color, this.icon,
+      {this.isSmallText = false});
+}
+
+// ── Alert Banner ───────────────────────────────────────────────────────────
+
+class _AlertBanner extends StatelessWidget {
+  final int notifCount;
+  final int lowStockCount;
+  final int pendingCount;
+  final VoidCallback onTap;
+
+  const _AlertBanner({
+    required this.notifCount,
+    required this.lowStockCount,
+    required this.pendingCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.red.withAlpha(12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.red.withAlpha(50)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.red.withAlpha(20),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.warning_amber_rounded,
+                  color: AppColors.red, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$notifCount notifikasi memerlukan perhatian',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: AppColors.red),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (lowStockCount > 0) '$lowStockCount stok menipis',
+                      if (pendingCount > 0) '$pendingCount order pending',
+                    ].join(' • '),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textMuted),
+                  ),
                 ],
               ),
             ),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.red, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Recent Order Card ──────────────────────────────────────────────────────
+
+class _RecentOrderCard extends StatelessWidget {
+  final OrderModel order;
+  final VoidCallback onTap;
+
+  const _RecentOrderCard({required this.order, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = AppColors.statusColor(order.orderStatus);
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: statusColor.withAlpha(18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.receipt_long_rounded, color: statusColor, size: 20),
           ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(order.orderCode,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text(
+                  order.customer?.customerName ?? order.customerId ?? '-',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              StatusPill(status: order.orderStatus),
+              const SizedBox(height: 4),
+              Text(rupiah(order.totalAmount),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      color: AppColors.primary)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Notification Bottom Sheet ──────────────────────────────────────────────
+
+class _NotificationSheet extends StatelessWidget {
+  final List<StockReport> lowStock;
+  final List<OrderModel> pendingOrders;
+  final List<OrderModel> processOrders;
+
+  const _NotificationSheet({
+    required this.lowStock,
+    required this.pendingOrders,
+    required this.processOrders,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final total = lowStock.length + pendingOrders.length;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.80,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: total > 0
+                        ? AppColors.red.withAlpha(18)
+                        : AppColors.green.withAlpha(18),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    total > 0
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_none_rounded,
+                    color: total > 0 ? AppColors.red : AppColors.green,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Notifikasi',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w900)),
+                      Text(
+                        total > 0
+                            ? '$total item memerlukan perhatian'
+                            : 'Semua baik-baik saja',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.border),
+          Flexible(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              shrinkWrap: true,
+              children: [
+                if (total == 0)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.check_circle_outline_rounded,
+                              size: 56, color: AppColors.green),
+                          SizedBox(height: 12),
+                          Text('Tidak ada notifikasi baru',
+                              style: TextStyle(
+                                  color: AppColors.textMuted, fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Stok Menipis
+                if (lowStock.isNotEmpty) ...[
+                  _NotifSection(
+                    icon: Icons.inventory_2_rounded,
+                    color: AppColors.red,
+                    title: 'Stok Menipis',
+                    subtitle: '${lowStock.length} item stok ≤ 5',
+                  ),
+                  const SizedBox(height: 8),
+                  ...lowStock.map((s) => _StockNotifTile(stock: s)),
+                  const SizedBox(height: 16),
+                ],
+
+                // Order Pending
+                if (pendingOrders.isNotEmpty) ...[
+                  _NotifSection(
+                    icon: Icons.hourglass_top_rounded,
+                    color: AppColors.primary,
+                    title: 'Order Menunggu',
+                    subtitle:
+                        '${pendingOrders.length} order belum diproses',
+                  ),
+                  const SizedBox(height: 8),
+                  ...pendingOrders
+                      .map((o) => _OrderNotifTile(order: o)),
+                  const SizedBox(height: 16),
+                ],
+
+                // Order Diproses
+                if (processOrders.isNotEmpty) ...[
+                  _NotifSection(
+                    icon: Icons.build_circle_rounded,
+                    color: AppColors.orange,
+                    title: 'Sedang Diproses',
+                    subtitle: '${processOrders.length} order dalam pengerjaan',
+                  ),
+                  const SizedBox(height: 8),
+                  ...processOrders
+                      .map((o) => _OrderNotifTile(order: o)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotifSection extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+
+  const _NotifSection({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Text(title,
+            style: TextStyle(
+                fontWeight: FontWeight.w900, fontSize: 13, color: color)),
+        const Spacer(),
+        Text(subtitle,
+            style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+      ],
+    );
+  }
+}
+
+class _StockNotifTile extends StatelessWidget {
+  final StockReport stock;
+  const _StockNotifTile({required this.stock});
+
+  @override
+  Widget build(BuildContext context) {
+    final isCritical = stock.stock == 0;
+    final color = isCritical ? AppColors.red : AppColors.orange;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withAlpha(40)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.inventory_2_outlined, color: color, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(stock.itemName,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: AppColors.textPrimary)),
+                Text(stock.categoryName,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textMuted)),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  isCritical ? 'HABIS' : 'Sisa ${stock.stock}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderNotifTile extends StatelessWidget {
+  final OrderModel order;
+  const _OrderNotifTile({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = AppColors.statusColor(order.orderStatus);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: statusColor.withAlpha(10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withAlpha(40)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: statusColor.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child:
+                Icon(Icons.receipt_long_outlined, color: statusColor, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(order.orderCode,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: AppColors.textPrimary)),
+                Text(
+                  order.customer?.customerName ?? order.customerId ?? '-',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          Text(rupiah(order.totalAmount),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  color: AppColors.textPrimary)),
         ],
       ),
     );

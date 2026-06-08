@@ -3,7 +3,6 @@ import '../../models/order_model.dart';
 import '../../services/order_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common.dart';
-import 'open_bill_screen.dart';
 import 'order_detail_screen.dart';
 
 class OrderListScreen extends StatefulWidget {
@@ -47,17 +46,6 @@ class _OrderListScreenState extends State<OrderListScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded, color: Colors.white),
-            tooltip: 'Open Bill',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const OpenBillScreen()),
-            ).then((_) => _load()),
-          ),
-          const SizedBox(width: 4),
-        ],
       ),
       body: Column(
         children: [
@@ -89,15 +77,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: _filtered.isEmpty
-                        ? EmptyState(
+                        ? const EmptyState(
                             message: 'Tidak ada order ditemukan',
                             icon: Icons.receipt_long_outlined,
-                            buttonLabel: 'Buat Order Baru',
-                            onButton: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const OpenBillScreen()),
-                            ).then((_) => _load()),
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
