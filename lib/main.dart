@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/app_theme.dart';
 import 'utils/app_colors.dart';
 import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/main_screen.dart';
 import 'screens/customer/customer_list_screen.dart';
 import 'screens/vehicle/vehicle_list_screen.dart';
 import 'screens/category/category_list_screen.dart';
@@ -31,7 +31,7 @@ class BengkelKuApp extends StatelessWidget {
       home: const SplashScreen(),
       routes: {
         '/login': (_) => const LoginScreen(),
-        '/dashboard': (_) => const DashboardScreen(),
+        '/dashboard': (_) => const MainScreen(),
         '/customers': (_) => const CustomerListScreen(),
         '/vehicles': (_) => const VehicleListScreen(),
         '/categories': (_) => const CategoryListScreen(),

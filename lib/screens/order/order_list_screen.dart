@@ -40,87 +40,134 @@ class _OrderListScreenState extends State<OrderListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Riwayat Order')),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.orange,
-        icon: const Icon(Icons.receipt_long, color: Colors.white),
-        label: const Text('Open Bill', style: TextStyle(color: Colors.white)),
-        onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const OpenBillScreen()))
-            .then((_) => _load()),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Riwayat Order'),
+        backgroundColor: AppColors.primaryDark,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded, color: Colors.white),
+            tooltip: 'Open Bill',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OpenBillScreen()),
+            ).then((_) => _load()),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: Column(
         children: [
-          // Filter chips
-          SizedBox(
-            height: 48,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-              scrollDirection: Axis.horizontal,
-              children: [
-                _filterChip('all', 'Semua'),
-                const SizedBox(width: 8),
-                _filterChip('pending', 'Pending'),
-                const SizedBox(width: 8),
-                _filterChip('process', 'Diproses'),
-                const SizedBox(width: 8),
-                _filterChip('completed', 'Selesai'),
-                const SizedBox(width: 8),
-                _filterChip('cancelled', 'Dibatalkan'),
-              ],
+          Container(
+            color: AppColors.primaryDark,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _filterChip('all', 'Semua'),
+                  const SizedBox(width: 8),
+                  _filterChip('pending', 'Pending'),
+                  const SizedBox(width: 8),
+                  _filterChip('process', 'Diproses'),
+                  const SizedBox(width: 8),
+                  _filterChip('completed', 'Selesai'),
+                  const SizedBox(width: 8),
+                  _filterChip('cancelled', 'Dibatalkan'),
+                ],
+              ),
             ),
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary))
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: _filtered.isEmpty
-                        ? const EmptyState(message: 'Tidak ada order', icon: Icons.receipt_long_outlined)
+                        ? EmptyState(
+                            message: 'Tidak ada order ditemukan',
+                            icon: Icons.receipt_long_outlined,
+                            buttonLabel: 'Buat Order Baru',
+                            onButton: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const OpenBillScreen()),
+                            ).then((_) => _load()),
+                          )
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(18, 4, 18, 100),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                             itemCount: _filtered.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
                             itemBuilder: (_, i) {
                               final o = _filtered[i];
+                              final statusColor =
+                                  AppColors.statusColor(o.orderStatus);
                               return AppCard(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(14),
                                 onTap: () => Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (_) => OrderDetailScreen(order: o)),
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          OrderDetailScreen(order: o)),
                                 ).then((_) => _load()),
                                 child: Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.all(10),
+                                      width: 46,
+                                      height: 46,
                                       decoration: BoxDecoration(
-                                        color: AppColors.statusColor(o.orderStatus).withAlpha(20),
-                                        borderRadius: BorderRadius.circular(12),
+                                        color: statusColor.withAlpha(18),
+                                        borderRadius: BorderRadius.circular(14),
                                       ),
-                                      child: Icon(Icons.receipt_long,
-                                          color: AppColors.statusColor(o.orderStatus), size: 22),
+                                      child: Icon(Icons.receipt_long_rounded,
+                                          color: statusColor, size: 22),
                                     ),
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(o.orderCode,
                                               style: const TextStyle(
-                                                  fontWeight: FontWeight.w900, fontSize: 14, color: AppColors.textPrimary)),
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 14,
+                                                  color: AppColors.textPrimary)),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '${o.customer?.customerName ?? o.customerId} • ${o.vehicle?.licensePlate ?? o.vehicleId}',
-                                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                            '${o.customer?.customerName ?? o.customerId}',
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                color: AppColors.textMuted),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(rupiah(o.totalAmount),
                                               style: const TextStyle(
-                                                  fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 13,
+                                                  color: AppColors.primary)),
                                         ],
                                       ),
                                     ),
-                                    StatusPill(status: o.orderStatus),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        StatusPill(status: o.orderStatus),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          o.vehicle?.licensePlate ?? '',
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppColors.textMuted),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               );
@@ -135,29 +182,35 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   Widget _filterChip(String key, String label) {
     final active = _filter == key;
-    Color color = AppColors.primary;
-    if (key == 'pending') color = AppColors.primary;
-    if (key == 'process') color = AppColors.orange;
-    if (key == 'completed') color = AppColors.green;
-    if (key == 'cancelled') color = AppColors.red;
+    final color = key == 'all'
+        ? AppColors.primary
+        : key == 'pending'
+            ? AppColors.primary
+            : key == 'process'
+                ? AppColors.orange
+                : key == 'completed'
+                    ? AppColors.green
+                    : AppColors.red;
 
     return GestureDetector(
       onTap: () => setState(() => _filter = key),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? color : Colors.white,
+          color: active ? Colors.white : Colors.white.withAlpha(25),
           borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: active ? color : AppColors.border),
-          boxShadow: active
-              ? [BoxShadow(color: color.withAlpha(40), blurRadius: 6, offset: const Offset(0, 2))]
-              : null,
+          border: Border.all(
+              color: active ? Colors.transparent : Colors.white.withAlpha(60)),
         ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: active ? Colors.white : AppColors.textMuted)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: active ? color : Colors.white70,
+          ),
+        ),
       ),
     );
   }
