@@ -125,6 +125,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
+  void _dismissStockAlert(String itemId) =>
+      setState(() => _lowStock.removeWhere((s) => s.itemId == itemId));
+
+  void _dismissOrderAlert(String orderId) => setState(() {
+        _pendingOrders.removeWhere((o) => o.orderId == orderId);
+        _processOrders.removeWhere((o) => o.orderId == orderId);
+      });
+
+  void _dismissAllAlerts() => setState(() {
+        _lowStock.clear();
+        _pendingOrders.clear();
+        _processOrders.clear();
+      });
+
   void _showNotifications() {
     showModalBottomSheet(
       context: context,
@@ -134,6 +148,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         lowStock: _lowStock,
         pendingOrders: _pendingOrders,
         processOrders: _processOrders,
+        onDismissStock: _dismissStockAlert,
+        onDismissOrder: _dismissOrderAlert,
+        onDismissAll: _dismissAllAlerts,
       ),
     );
   }
@@ -644,16 +661,26 @@ class _NotificationSheet extends StatelessWidget {
   final List<StockReport> lowStock;
   final List<OrderModel> pendingOrders;
   final List<OrderModel> processOrders;
+  final void Function(String) onDismissStock;
+  final void Function(String) onDismissOrder;
+  final VoidCallback onDismissAll;
 
   const _NotificationSheet({
     required this.lowStock,
     required this.pendingOrders,
     required this.processOrders,
+    required this.onDismissStock,
+    required this.onDismissOrder,
+    required this.onDismissAll,
   });
 
   @override
   Widget build(BuildContext context) {
-    final total = lowStock.length + pendingOrders.length;
+    final stock = lowStock;
+    final pending = pendingOrders;
+    final process = processOrders;
+    final total = stock.length + pending.length;
+    final hasAny = stock.isNotEmpty || pending.isNotEmpty || process.isNotEmpty;
 
     return Container(
       decoration: const BoxDecoration(
@@ -718,6 +745,16 @@ class _NotificationSheet extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (hasAny)
+                  TextButton.icon(
+                    onPressed: onDismissAll,
+                    icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                    label: const Text('Hapus Semua'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textMuted,
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -728,7 +765,7 @@ class _NotificationSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               shrinkWrap: true,
               children: [
-                if (total == 0)
+                if (!hasAny)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
                     child: Center(
@@ -746,44 +783,68 @@ class _NotificationSheet extends StatelessWidget {
                   ),
 
                 // Stok Menipis
-                if (lowStock.isNotEmpty) ...[
+                if (stock.isNotEmpty) ...[
                   _NotifSection(
                     icon: Icons.inventory_2_rounded,
                     color: AppColors.red,
                     title: 'Stok Menipis',
-                    subtitle: '${lowStock.length} item stok ≤ 5',
+                    subtitle: '${stock.length} item stok ≤ 5',
                   ),
                   const SizedBox(height: 8),
-                  ...lowStock.map((s) => _StockNotifTile(stock: s)),
+                  ...stock.map((s) => Dismissible(
+                        key: ValueKey('stock-${s.itemId}'),
+                        direction: DismissDirection.endToStart,
+                        background: _dismissBg(),
+                        onDismissed: (_) => onDismissStock(s.itemId),
+                        child: _StockNotifTile(
+                          stock: s,
+                          onDismiss: () => onDismissStock(s.itemId),
+                        ),
+                      )),
                   const SizedBox(height: 16),
                 ],
 
                 // Order Pending
-                if (pendingOrders.isNotEmpty) ...[
+                if (pending.isNotEmpty) ...[
                   _NotifSection(
                     icon: Icons.hourglass_top_rounded,
                     color: AppColors.primary,
                     title: 'Order Menunggu',
-                    subtitle:
-                        '${pendingOrders.length} order belum diproses',
+                    subtitle: '${pending.length} order belum diproses',
                   ),
                   const SizedBox(height: 8),
-                  ...pendingOrders
-                      .map((o) => _OrderNotifTile(order: o)),
+                  ...pending.map((o) => Dismissible(
+                        key: ValueKey('order-${o.orderId}'),
+                        direction: DismissDirection.endToStart,
+                        background: _dismissBg(),
+                        onDismissed: (_) => onDismissOrder(o.orderId),
+                        child: _OrderNotifTile(
+                          order: o,
+                          onDismiss: () => onDismissOrder(o.orderId),
+                        ),
+                      )),
                   const SizedBox(height: 16),
                 ],
 
                 // Order Diproses
-                if (processOrders.isNotEmpty) ...[
+                if (process.isNotEmpty) ...[
                   _NotifSection(
                     icon: Icons.build_circle_rounded,
                     color: AppColors.orange,
                     title: 'Sedang Diproses',
-                    subtitle: '${processOrders.length} order dalam pengerjaan',
+                    subtitle: '${process.length} order dalam pengerjaan',
                   ),
                   const SizedBox(height: 8),
-                  ...processOrders
-                      .map((o) => _OrderNotifTile(order: o)),
+                  ...process.map((o) => Dismissible(
+                        key: ValueKey('process-${o.orderId}'),
+                        direction: DismissDirection.endToStart,
+                        background: _dismissBg(),
+                        onDismissed: (_) => onDismissOrder(o.orderId),
+                        child: _OrderNotifTile(
+                          order: o,
+                          onDismiss: () => onDismissOrder(o.orderId),
+                        ),
+                      )),
                 ],
               ],
             ),
@@ -792,6 +853,17 @@ class _NotificationSheet extends StatelessWidget {
       ),
     );
   }
+
+  Widget _dismissBg() => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: AppColors.red.withAlpha(20),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete_outline_rounded, color: AppColors.red, size: 22),
+      );
 }
 
 class _NotifSection extends StatelessWidget {
@@ -826,7 +898,8 @@ class _NotifSection extends StatelessWidget {
 
 class _StockNotifTile extends StatelessWidget {
   final StockReport stock;
-  const _StockNotifTile({required this.stock});
+  final VoidCallback? onDismiss;
+  const _StockNotifTile({required this.stock, this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
@@ -834,7 +907,7 @@ class _StockNotifTile extends StatelessWidget {
     final color = isCritical ? AppColors.red : AppColors.orange;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
       decoration: BoxDecoration(
         color: color.withAlpha(10),
         borderRadius: BorderRadius.circular(12),
@@ -866,26 +939,28 @@ class _StockNotifTile extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  isCritical ? 'HABIS' : 'Sisa ${stock.stock}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              isCritical ? 'HABIS' : 'Sisa ${stock.stock}',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800),
+            ),
           ),
+          if (onDismiss != null)
+            GestureDetector(
+              onTap: onDismiss,
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(6, 0, 4, 0),
+                child: Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+              ),
+            ),
         ],
       ),
     );
@@ -894,14 +969,15 @@ class _StockNotifTile extends StatelessWidget {
 
 class _OrderNotifTile extends StatelessWidget {
   final OrderModel order;
-  const _OrderNotifTile({required this.order});
+  final VoidCallback? onDismiss;
+  const _OrderNotifTile({required this.order, this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
     final statusColor = AppColors.statusColor(order.orderStatus);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
       decoration: BoxDecoration(
         color: statusColor.withAlpha(10),
         borderRadius: BorderRadius.circular(12),
@@ -941,6 +1017,14 @@ class _OrderNotifTile extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   fontSize: 12,
                   color: AppColors.textPrimary)),
+          if (onDismiss != null)
+            GestureDetector(
+              onTap: onDismiss,
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(6, 0, 4, 0),
+                child: Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+              ),
+            ),
         ],
       ),
     );
