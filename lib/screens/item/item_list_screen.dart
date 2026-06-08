@@ -42,16 +42,19 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    // Start both requests in parallel
+    final itemsFuture = ItemService.getAll();
+    final suppliersFuture = SupplierService.getAll();
+    // Items and suppliers are handled independently: kasir may not have
+    // permission for /suppliers (403), but must still see items.
     try {
-      final itemsFuture = ItemService.getAll();
-      final suppliersFuture = SupplierService.getAll();
       final items = await itemsFuture;
+      if (mounted) setState(() => _all = items);
+    } catch (_) {}
+    try {
       final suppliers = await suppliersFuture;
       if (mounted) {
-        setState(() {
-          _all = items;
-          _supplierMap = {for (final s in suppliers) s.supplierId: s.supplierName};
-        });
+        setState(() => _supplierMap = {for (final s in suppliers) s.supplierId: s.supplierName});
       }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
