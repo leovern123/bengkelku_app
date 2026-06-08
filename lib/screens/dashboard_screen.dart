@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/order_service.dart';
 import '../services/report_service.dart';
 import '../utils/app_colors.dart';
+import '../utils/notification_service.dart';
 import '../widgets/common.dart';
 import 'order/order_detail_screen.dart';
 
@@ -53,8 +54,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadStats() async {
     setState(() => _loadingStats = true);
 
-    // Load orders (all roles)
-    OrderService.getAll().then((orders) {
+    List<OrderModel> orders = [];
+    List<StockReport> lowStock = [];
+
+    // Load orders
+    await OrderService.getAll().then((result) {
+      orders = result;
       if (!mounted) return;
       setState(() {
         _pending = orders.where((o) => o.orderStatus == 'pending').length;
@@ -69,17 +74,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) setState(() => _loadingStats = false);
     });
 
-    // Load income summary (admin only — will fail silently for kasir)
+    // Load income summary (admin only — fails silently for kasir)
     ReportService.getSummary().then((summary) {
       if (!mounted) return;
       setState(() => _income = summary.totalIncome);
     }).catchError((_) {});
 
-    // Load stock alerts
-    ReportService.getStock().then((stock) {
+    // Load stock alerts then fire notifications
+    await ReportService.getStock().then((stock) {
+      lowStock = stock.where((s) => s.isLow).toList();
       if (!mounted) return;
-      setState(() => _lowStock = stock.where((s) => s.isLow).toList());
+      setState(() => _lowStock = lowStock);
     }).catchError((_) {});
+
+    // Kirim notifikasi nyata untuk masalah baru
+    NotificationService.checkAndNotify(
+      lowStock: lowStock,
+      pendingOrders: _pendingOrders,
+    );
   }
 
   Future<void> _logout() async {
@@ -108,6 +120,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       await AuthService.logout();
     } catch (_) {}
+    await NotificationService.clearTracking();
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/login');
   }

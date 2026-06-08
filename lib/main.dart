@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/app_theme.dart';
 import 'utils/app_colors.dart';
+import 'utils/notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/customer/customer_list_screen.dart';
@@ -15,7 +16,9 @@ import 'screens/mechanic/mechanic_list_screen.dart';
 import 'screens/expense/expense_list_screen.dart';
 import 'screens/report/report_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   runApp(const BengkelKuApp());
 }
 
@@ -63,6 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 600));
+    await NotificationService.requestPermission();
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     if (!mounted) return;
