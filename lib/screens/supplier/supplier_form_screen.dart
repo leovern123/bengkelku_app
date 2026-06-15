@@ -18,6 +18,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
   bool _loading = false;
 
   bool get isEdit => widget.supplier != null;
@@ -29,6 +30,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
       _nameCtrl.text = widget.supplier!.supplierName;
       _phoneCtrl.text = widget.supplier!.phoneNumber ?? '';
       _addressCtrl.text = widget.supplier!.address ?? '';
+      _notesCtrl.text = widget.supplier!.notes ?? '';
     }
   }
 
@@ -37,6 +39,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _addressCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -61,8 +64,9 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
     try {
       final data = {
         'supplier_name': _nameCtrl.text.trim(),
-        if (_phoneCtrl.text.trim().isNotEmpty) 'phone_number': _phoneCtrl.text.trim(),
-        if (_addressCtrl.text.trim().isNotEmpty) 'address': _addressCtrl.text.trim(),
+        'phone_number': _phoneCtrl.text.trim(),
+        'address': _addressCtrl.text.trim(),
+        'notes': _notesCtrl.text.trim(),
       };
 
       if (isEdit) {
@@ -90,7 +94,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Edit Supplier' : 'Tambah Supplier')),
+      appBar: AppBar(title: Text(isEdit ? 'Update Supplier' : 'Tambah Supplier')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
         child: Form(
@@ -113,36 +117,60 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
                       controller: _nameCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Nama Supplier',
-                        prefixIcon: Icon(Icons.business_outlined, color: AppColors.textMuted),
+                        prefixIcon:
+                            Icon(Icons.business_outlined, color: AppColors.textMuted),
                       ),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Nama supplier wajib diisi' : null,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Nama supplier wajib diisi'
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
-                        labelText: 'No. Telepon (opsional)',
-                        prefixIcon: Icon(Icons.phone_outlined, color: AppColors.textMuted),
+                        labelText: 'No. Telepon',
+                        prefixIcon:
+                            Icon(Icons.phone_outlined, color: AppColors.textMuted),
                       ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'No. telepon wajib diisi'
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _addressCtrl,
                       maxLines: 3,
                       decoration: const InputDecoration(
-                        labelText: 'Alamat (opsional)',
-                        prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.textMuted),
+                        labelText: 'Alamat',
+                        prefixIcon: Icon(Icons.location_on_outlined,
+                            color: AppColors.textMuted),
                         alignLabelWithHint: true,
                       ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Alamat wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _notesCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Keterangan',
+                        prefixIcon: Icon(Icons.notes_outlined,
+                            color: AppColors.textMuted),
+                        alignLabelWithHint: true,
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Keterangan wajib diisi'
+                          : null,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               PrimaryButton(
-                label: isEdit ? 'Simpan Perubahan' : 'Tambah Supplier',
+                label: isEdit ? 'Update Supplier' : 'Tambah Supplier',
                 icon: isEdit ? Icons.save : Icons.add,
                 isLoading: _loading,
                 onPressed: _submit,
