@@ -32,6 +32,11 @@ class _ReportScreenState extends State<ReportScreen>
   bool _stockLoading = true;
   String? _stockCategory;
 
+  List<FavoriteReport> _favorites = [];
+  bool _favLoading = true;
+  String? _favError;
+  int _favTab = 0; // 0 = Sparepart, 1 = Jasa
+
   // Chart
   List<ChartPoint> _chartPoints = [];
   bool _chartLoading = true;
@@ -54,7 +59,7 @@ class _ReportScreenState extends State<ReportScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
+    _tab = TabController(length: 4, vsync: this);
     _loadAll();
   }
 
@@ -70,6 +75,7 @@ class _ReportScreenState extends State<ReportScreen>
       _loadTransactions(),
       _loadStock(),
       _loadChart(),
+      _loadFavorites(),
     ]);
   }
 
@@ -93,6 +99,7 @@ class _ReportScreenState extends State<ReportScreen>
   void _onFilterChanged() {
     _loadSummary();
     _loadTransactions();
+    _loadFavorites();
   }
 
   void _resetFilter() {
@@ -131,6 +138,16 @@ class _ReportScreenState extends State<ReportScreen>
       if (mounted) setState(() { _stocks = d; _stockLoading = false; });
     } catch (_) {
       if (mounted) setState(() => _stockLoading = false);
+    }
+  }
+
+  Future<void> _loadFavorites() async {
+    setState(() { _favLoading = true; _favError = null; });
+    try {
+      final d = await ReportService.getFavorites(startDate: _startDate, endDate: _endDate);
+      if (mounted) setState(() { _favorites = d; _favLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _favLoading = false; _favError = e.toString(); });
     }
   }
 
@@ -270,6 +287,7 @@ class _ReportScreenState extends State<ReportScreen>
             Tab(text: 'Ringkasan'),
             Tab(text: 'Transaksi'),
             Tab(text: 'Stok Produk'),
+            Tab(text: 'Favorit'),
           ],
         ),
       ),
@@ -287,6 +305,7 @@ class _ReportScreenState extends State<ReportScreen>
                 _buildRingkasan(),
                 _buildTransaksi(),
                 _buildStok(),
+                _buildFavorit(),
               ],
             ),
           ),
@@ -924,6 +943,158 @@ class _ReportScreenState extends State<ReportScreen>
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
           Text('Modal: ${rupiah(s.purchasePrice)}',
               style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        ]),
+      ]),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // TAB 4 — FAVORIT
+  // ══════════════════════════════════════════════════════════════════════
+
+  Widget _buildFavorit() {
+    final sparepart = _favorites.where((f) => !f.isService).toList();
+    final jasa = _favorites.where((f) => f.isService).toList();
+    final list = _favTab == 0 ? sparepart : jasa;
+
+    return RefreshIndicator(
+      onRefresh: _loadFavorites,
+      child: _favLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _favError != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(_favError!,
+                        style: const TextStyle(color: AppColors.red, fontSize: 13),
+                        textAlign: TextAlign.center),
+                  ))
+              : Column(children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Row(children: [
+                      _favTabBtn(0, 'Sparepart', Icons.build_outlined),
+                      const SizedBox(width: 8),
+                      _favTabBtn(1, 'Jasa', Icons.miscellaneous_services_outlined),
+                    ]),
+                  ),
+                  Expanded(
+                    child: list.isEmpty
+                        ? EmptyState(
+                            message: 'Tidak ada ${_favTab == 0 ? 'sparepart' : 'jasa'} favorit',
+                            icon: Icons.star_outline)
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            itemCount: list.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (_, i) => _favCard(list[i], i + 1),
+                          ),
+                  ),
+                ]),
+    );
+  }
+
+  Widget _favTabBtn(int index, String label, IconData icon) {
+    final active = _favTab == index;
+    final color = index == 0 ? AppColors.primary : AppColors.green;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _favTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? color : AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: active ? color : AppColors.border),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 16, color: active ? Colors.white : AppColors.textMuted),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: active ? Colors.white : AppColors.textMuted)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _favCard(FavoriteReport f, int rank) {
+    final isService = f.isService;
+    final color = isService ? AppColors.green : AppColors.primary;
+    final rankColor = rank == 1
+        ? const Color(0xFFFFD700)
+        : rank == 2
+            ? const Color(0xFFC0C0C0)
+            : rank == 3
+                ? const Color(0xFFCD7F32)
+                : AppColors.textMuted;
+
+    return AppCard(
+      child: Row(children: [
+        SizedBox(
+          width: 32,
+          child: Text(
+            '#$rank',
+            style: TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w900, color: rankColor),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(
+              color: color.withAlpha(20),
+              borderRadius: BorderRadius.circular(12)),
+          alignment: Alignment.center,
+          child: Icon(
+            isService ? Icons.miscellaneous_services_outlined : Icons.build_outlined,
+            color: color, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(f.itemName,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                    color: color.withAlpha(20),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(f.typeName,
+                    style: TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(f.categoryName,
+                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ]),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Row(children: [
+            const Icon(Icons.shopping_cart_outlined, size: 13, color: AppColors.textMuted),
+            const SizedBox(width: 3),
+            Text('${f.totalQty}x',
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+          ]),
+          const SizedBox(height: 2),
+          Text(rupiah(f.totalRevenue),
+              style: const TextStyle(
+                  fontSize: 11, color: AppColors.textMuted)),
         ]),
       ]),
     );

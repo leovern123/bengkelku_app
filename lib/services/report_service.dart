@@ -169,6 +169,35 @@ class StockReport {
   }
 }
 
+class FavoriteReport {
+  final String itemId;
+  final String itemName;
+  final String categoryName;
+  final String typeName;
+  final int totalQty;
+  final double totalRevenue;
+
+  FavoriteReport({
+    required this.itemId,
+    required this.itemName,
+    required this.categoryName,
+    required this.typeName,
+    required this.totalQty,
+    required this.totalRevenue,
+  });
+
+  bool get isService => typeName.toLowerCase().contains('jasa');
+
+  factory FavoriteReport.fromJson(Map<String, dynamic> j) => FavoriteReport(
+        itemId: j['item_id']?.toString() ?? '',
+        itemName: j['item_name']?.toString() ?? '-',
+        categoryName: j['category_name']?.toString() ?? '-',
+        typeName: j['type_name']?.toString() ?? '-',
+        totalQty: int.tryParse(j['total_qty']?.toString() ?? '0') ?? 0,
+        totalRevenue: double.tryParse(j['total_revenue']?.toString() ?? '0') ?? 0,
+      );
+}
+
 class ReportService {
   static Future<ReportSummary> getSummary() async {
     final options = await ApiService.authOptions();
@@ -238,6 +267,24 @@ class ReportService {
     final res = await ApiService.dio.get('/reports/stock', options: options);
     return (res.data['data'] as List)
         .map((e) => StockReport.fromJson(e))
+        .toList();
+  }
+
+  static Future<List<FavoriteReport>> getFavorites({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final options = await ApiService.authOptions();
+    final res = await ApiService.dio.get(
+      '/reports/favorites',
+      queryParameters: {
+        if (startDate != null) 'start_date': startDate,
+        if (endDate != null) 'end_date': endDate,
+      },
+      options: options,
+    );
+    return (res.data['data'] as List)
+        .map((e) => FavoriteReport.fromJson(e))
         .toList();
   }
 
