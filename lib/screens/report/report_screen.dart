@@ -28,11 +28,9 @@ class _ReportScreenState extends State<ReportScreen>
   List<TransactionReport> _transactions = [];
   bool _txLoading = true;
 
-  List<PaymentReport> _payments = [];
-  bool _payLoading = true;
-
   List<StockReport> _stocks = [];
   bool _stockLoading = true;
+  String? _stockCategory;
 
   // Chart
   List<ChartPoint> _chartPoints = [];
@@ -56,7 +54,7 @@ class _ReportScreenState extends State<ReportScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 5, vsync: this);
+    _tab = TabController(length: 3, vsync: this);
     _loadAll();
   }
 
@@ -70,7 +68,6 @@ class _ReportScreenState extends State<ReportScreen>
     await Future.wait([
       _loadSummary(),
       _loadTransactions(),
-      _loadPayments(),
       _loadStock(),
       _loadChart(),
     ]);
@@ -96,8 +93,6 @@ class _ReportScreenState extends State<ReportScreen>
   void _onFilterChanged() {
     _loadSummary();
     _loadTransactions();
-    _loadPayments();
-    // stock doesn't use date filter
   }
 
   void _resetFilter() {
@@ -129,16 +124,6 @@ class _ReportScreenState extends State<ReportScreen>
     }
   }
 
-  Future<void> _loadPayments() async {
-    setState(() => _payLoading = true);
-    try {
-      final d = await ReportService.getPayments(startDate: _startDate, endDate: _endDate);
-      if (mounted) setState(() { _payments = d; _payLoading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _payLoading = false);
-    }
-  }
-
   Future<void> _loadStock() async {
     setState(() => _stockLoading = true);
     try {
@@ -152,9 +137,10 @@ class _ReportScreenState extends State<ReportScreen>
   Future<void> _loadChart() async {
     setState(() => _chartLoading = true);
     try {
+      final apiPeriod = _chartPeriod == 'all' ? 'yearly' : _chartPeriod;
       final d = await ReportService.getChart(
-        period: _chartPeriod,
-        year: _chartPeriod != 'yearly' ? _chartYear : null,
+        period: apiPeriod,
+        year: (_chartPeriod == 'monthly') ? _chartYear : (_chartPeriod == 'daily' ? _chartYear : null),
         month: _chartPeriod == 'daily' ? _chartMonth : null,
       );
       if (mounted) setState(() { _chartPoints = d; _chartLoading = false; });
@@ -189,10 +175,12 @@ class _ReportScreenState extends State<ReportScreen>
 
   bool get _canGoNext {
     final now = DateTime.now();
-    if (_chartPeriod == 'yearly') return false;
+    if (_chartPeriod == 'yearly' || _chartPeriod == 'all') return false;
     if (_chartPeriod == 'daily') return !(_chartYear == now.year && _chartMonth == now.month);
     return _chartYear < now.year;
   }
+
+  bool get _showNavigation => _chartPeriod == 'daily' || _chartPeriod == 'monthly';
 
   // ── Period label ───────────────────────────────────────────────────────
 
@@ -217,13 +205,7 @@ class _ReportScreenState extends State<ReportScreen>
           await exportTransaksi(_transactions, period: _periodLabel);
           break;
         case 2:
-          await exportPembayaran(_payments, period: _periodLabel);
-          break;
-        case 3:
           await exportStok(_stocks);
-          break;
-        case 4:
-          if (_summary != null) await exportKeuntungan(_summary!, period: _periodLabel);
           break;
       }
     } catch (_) {
@@ -287,15 +269,12 @@ class _ReportScreenState extends State<ReportScreen>
           tabs: const [
             Tab(text: 'Ringkasan'),
             Tab(text: 'Transaksi'),
-            Tab(text: 'Pembayaran'),
             Tab(text: 'Stok Produk'),
-            Tab(text: 'Keuntungan'),
           ],
         ),
       ),
       body: Column(
         children: [
-          // Filter bar (shared, always visible)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: _buildFilterBar(),
@@ -307,9 +286,7 @@ class _ReportScreenState extends State<ReportScreen>
               children: [
                 _buildRingkasan(),
                 _buildTransaksi(),
-                _buildPembayaran(),
                 _buildStok(),
-                _buildKeuntungan(),
               ],
             ),
           ),
@@ -435,24 +412,36 @@ class _ReportScreenState extends State<ReportScreen>
             if (_summaryLoading)
               const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
             else if (_summary != null) ...[
+              // ── Ringkasan keuangan ─────────────────────────────────
               const SectionTitle(title: 'Ringkasan Keuangan'),
               const SizedBox(height: 10),
-              _metricRow(Icons.payments_outlined, 'Total Pendapatan', _summary!.totalIncome, AppColors.primary),
-              _metricRow(Icons.inventory_2_outlined, 'Total Modal Produk', _summary!.totalModal, AppColors.orange),
-              _metricRow(Icons.money_off_outlined, 'Total Pengeluaran', _summary!.totalExpenses, AppColors.red),
-              _metricRow(Icons.trending_up, 'Laba Kotor', _summary!.labaKotor, AppColors.green, bold: true),
-              _metricRow(Icons.account_balance_wallet_outlined, 'Laba Bersih',
-                  _summary!.labaBersih, _summary!.labaBersih >= 0 ? AppColors.primaryDark : AppColors.red, bold: true),
+              _metricRow(Icons.payments_outlined, 'Total Pendapatan',
+                  'Uang masuk dari semua transaksi', _summary!.totalIncome, AppColors.primary),
+              _metricRow(Icons.inventory_2_outlined, 'Modal Produk',
+                  'Biaya pengadaan produk yang terjual', _summary!.totalModal, AppColors.orange),
+              _metricRow(Icons.money_off_outlined, 'Total Pengeluaran',
+                  'Biaya operasional & pengeluaran lain', _summary!.totalExpenses, AppColors.red),
+              const SizedBox(height: 4),
+              _metricDivider('Laba Kotor',
+                  'Pendapatan dikurangi modal produk',
+                  _summary!.labaKotor, AppColors.green),
+              _metricDivider('Laba Bersih',
+                  'Laba kotor dikurangi pengeluaran',
+                  _summary!.labaBersih,
+                  _summary!.labaBersih >= 0 ? AppColors.primaryDark : AppColors.red,
+                  bold: true),
             ],
             const SizedBox(height: 20),
-            // Order stats (all-time only)
+
+            // ── Statistik order (all-time only) ───────────────────────
             if (_filterYear == null && _summary != null && _summary!.orders.isNotEmpty) ...[
               const SectionTitle(title: 'Statistik Order'),
               const SizedBox(height: 10),
               _buildOrderStats(_summary!.orders),
               const SizedBox(height: 20),
             ],
-            // Chart
+
+            // ── Grafik ────────────────────────────────────────────────
             _buildChartSection(),
           ],
         ),
@@ -460,22 +449,55 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Widget _metricRow(IconData icon, String label, double value, Color color, {bool bold = false}) {
+  Widget _metricRow(IconData icon, String label, String desc, double value, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: AppCard(
-        color: bold ? color.withAlpha(15) : null,
         child: Row(children: [
           Container(
-            width: 38, height: 38,
-            decoration: BoxDecoration(color: color.withAlpha(30), shape: BoxShape.circle),
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: color.withAlpha(25), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 12),
-          Expanded(child: Text(label,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary))),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(desc, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+          ])),
           Text(rupiah(value),
-              style: TextStyle(fontSize: bold ? 14 : 13, fontWeight: FontWeight.w800, color: color)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _metricDivider(String label, String desc, double value, Color color, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AppCard(
+        color: color.withAlpha(15),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: color.withAlpha(30), shape: BoxShape.circle),
+            child: Icon(
+              value >= 0 ? Icons.trending_up : Icons.trending_down,
+              color: color, size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: TextStyle(
+                fontSize: bold ? 14 : 13,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textPrimary)),
+            Text(desc, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+          ])),
+          Text(rupiah(value),
+              style: TextStyle(
+                  fontSize: bold ? 15 : 13,
+                  fontWeight: FontWeight.w900,
+                  color: color)),
         ]),
       ),
     );
@@ -483,21 +505,23 @@ class _ReportScreenState extends State<ReportScreen>
 
   Widget _buildOrderStats(Map<String, int> o) {
     return Row(children: [
-      Expanded(child: _statChip('Total', o['total'] ?? 0, AppColors.textMuted)),
+      Expanded(child: _statChip('Total\nOrder', o['total'] ?? 0, AppColors.textMuted, Icons.receipt_long_outlined)),
       const SizedBox(width: 8),
-      Expanded(child: _statChip('Selesai', o['completed'] ?? 0, AppColors.green)),
+      Expanded(child: _statChip('Selesai', o['completed'] ?? 0, AppColors.green, Icons.check_circle_outline)),
       const SizedBox(width: 8),
-      Expanded(child: _statChip('Proses', o['process'] ?? 0, AppColors.orange)),
+      Expanded(child: _statChip('Diproses', o['process'] ?? 0, AppColors.orange, Icons.timelapse_outlined)),
     ]);
   }
 
-  Widget _statChip(String label, int count, Color color) {
+  Widget _statChip(String label, int count, Color color, IconData icon) {
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 4),
         Text('$count', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted), textAlign: TextAlign.center),
       ]),
     );
   }
@@ -505,24 +529,33 @@ class _ReportScreenState extends State<ReportScreen>
   // ── Chart section ──────────────────────────────────────────────────────
 
   Widget _buildChartSection() {
+    final periods = ['all', 'monthly', 'daily'];
+    final labels = {'all': 'Semua', 'monthly': 'Bulanan', 'daily': 'Harian'};
+
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle(title: 'Grafik Pendapatan & Laba'),
+        const SectionTitle(title: 'Grafik Keuangan'),
         const SizedBox(height: 10),
-        // Period tabs
+
+        // Period toggle
         AppCard(
           padding: const EdgeInsets.all(4),
           child: Row(
-            children: ['daily','monthly','yearly'].map((p) {
-              final labels = {'daily':'Harian','monthly':'Bulanan','yearly':'Tahunan'};
+            children: periods.map((p) {
               final active = _chartPeriod == p;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () { if (_chartPeriod != p) { setState(() => _chartPeriod = p); _loadChart(); } },
+                  onTap: () {
+                    if (_chartPeriod != p) {
+                      setState(() => _chartPeriod = p);
+                      _loadChart();
+                    }
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
                       color: active ? AppColors.primary : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
@@ -537,107 +570,201 @@ class _ReportScreenState extends State<ReportScreen>
             }).toList(),
           ),
         ),
-        if (_chartPeriod != 'yearly') ...[
+
+        // Navigation (hanya untuk Harian & Bulanan)
+        if (_showNavigation) ...[
           const SizedBox(height: 6),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            IconButton(onPressed: _prevPeriod, icon: const Icon(Icons.chevron_left, color: AppColors.primary), visualDensity: VisualDensity.compact),
+            IconButton(
+              onPressed: _prevPeriod,
+              icon: const Icon(Icons.chevron_left, color: AppColors.primary),
+              visualDensity: VisualDensity.compact,
+            ),
             Text(
-              _chartPeriod == 'daily' ? '${_monthFull[_chartMonth-1]} $_chartYear' : '$_chartYear',
+              _chartPeriod == 'daily'
+                  ? '${_monthFull[_chartMonth - 1]} $_chartYear'
+                  : '$_chartYear',
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
             ),
             IconButton(
               onPressed: _canGoNext ? _nextPeriod : null,
-              icon: Icon(Icons.chevron_right, color: _canGoNext ? AppColors.primary : AppColors.border),
+              icon: Icon(Icons.chevron_right,
+                  color: _canGoNext ? AppColors.primary : AppColors.border),
               visualDensity: VisualDensity.compact,
             ),
           ]),
-        ],
-        const SizedBox(height: 6),
+        ] else
+          const SizedBox(height: 8),
+
+        // Legenda
         Row(children: [
-          _legendDot(AppColors.primary, 'Pendapatan'),
-          const SizedBox(width: 12),
-          _legendDot(AppColors.green, 'Laba (+)'),
-          const SizedBox(width: 12),
-          _legendDot(AppColors.red, 'Laba (−)'),
+          _legendItem(AppColors.primary, 'Pendapatan', 'Uang masuk'),
+          const SizedBox(width: 14),
+          _legendItem(AppColors.green, 'Laba', 'Untung bersih'),
+          const SizedBox(width: 14),
+          _legendItem(AppColors.red, 'Rugi', 'Laba negatif'),
         ]),
         const SizedBox(height: 8),
+
+        // Chart
         AppCard(
           padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
           child: SizedBox(
-            height: 200,
+            height: 220,
             child: _chartLoading
                 ? const Center(child: CircularProgressIndicator())
-                : (_chartPoints.isEmpty || _chartPoints.every((p) => p.income == 0 && p.modal == 0 && p.expenses == 0))
-                    ? const Center(child: Text('Belum ada data', style: TextStyle(color: AppColors.textMuted)))
-                    : _buildBarChart(),
+                : (_chartPoints.isEmpty ||
+                        _chartPoints.every((p) => p.income == 0 && p.modal == 0 && p.expenses == 0))
+                    ? const Center(
+                        child: Text('Belum ada data untuk periode ini',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 13)))
+                    : _buildLineChart(),
           ),
         ),
+
       ],
     );
   }
 
-  Widget _legendDot(Color color, String label) => Row(children: [
-    Container(width: 9, height: 9, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-    const SizedBox(width: 4),
-    Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+  Widget _legendItem(Color color, String title, String desc) => Row(children: [
+    Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    const SizedBox(width: 5),
+    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+      Text(desc, style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
+    ]),
   ]);
 
-  Widget _buildBarChart() {
-    final maxIncome = _chartPoints.map((p) => p.income).fold(0.0, (a, b) => a > b ? a : b);
-    final maxY = (maxIncome * 1.25).clamp(10000.0, double.infinity);
-    final barW = _chartPeriod == 'daily' ? 4.0 : _chartPeriod == 'monthly' ? 10.0 : 20.0;
+  Widget _buildLineChart() {
+    final maxVal = _chartPoints.map((p) => p.income).fold(0.0, (a, b) => a > b ? a : b);
+    final maxY = (maxVal * 1.3).clamp(10000.0, double.infinity);
+    final showDots = _chartPoints.length <= 15;
 
-    return BarChart(BarChartData(
-      maxY: maxY, minY: 0,
-      groupsSpace: _chartPeriod == 'daily' ? 2 : 8,
-      alignment: BarChartAlignment.spaceEvenly,
-      barGroups: _chartPoints.asMap().entries.map((e) {
-        final p = e.value;
-        final lb = p.labaBersih;
-        return BarChartGroupData(x: e.key, barsSpace: 2, barRods: [
-          BarChartRodData(toY: p.income, color: AppColors.primary, width: barW,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(3))),
-          BarChartRodData(toY: lb > 0 ? lb : 0, color: lb >= 0 ? AppColors.green : AppColors.red,
-              width: barW, borderRadius: const BorderRadius.vertical(top: Radius.circular(3))),
-        ]);
-      }).toList(),
+    final incomeSpots = _chartPoints.asMap().entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value.income))
+        .toList();
+    final labaSpots = _chartPoints.asMap().entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value.labaBersih.clamp(0.0, double.infinity)))
+        .toList();
+
+    return LineChart(LineChartData(
+      maxY: maxY,
+      minY: 0,
+      lineBarsData: [
+        // Garis Pendapatan — area terisi biru
+        LineChartBarData(
+          spots: incomeSpots,
+          isCurved: true,
+          color: AppColors.primary,
+          barWidth: 2.5,
+          isStrokeCapRound: true,
+          dotData: FlDotData(
+            show: showDots,
+            getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+              radius: 3.5,
+              color: AppColors.primary,
+              strokeWidth: 1.5,
+              strokeColor: Colors.white,
+            ),
+          ),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              colors: [AppColors.primary.withAlpha(70), AppColors.primary.withAlpha(5)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        ),
+        // Garis Laba Bersih — putus-putus hijau
+        LineChartBarData(
+          spots: labaSpots,
+          isCurved: true,
+          color: AppColors.green,
+          barWidth: 2,
+          isStrokeCapRound: true,
+          dashArray: [6, 3],
+          dotData: FlDotData(
+            show: showDots,
+            getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+              radius: 3,
+              color: AppColors.green,
+              strokeWidth: 1.5,
+              strokeColor: Colors.white,
+            ),
+          ),
+        ),
+      ],
       titlesData: FlTitlesData(
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         leftTitles: AxisTitles(sideTitles: SideTitles(
-          showTitles: true, reservedSize: 44, interval: maxY / 4,
+          showTitles: true,
+          reservedSize: 44,
+          interval: maxY / 4,
           getTitlesWidget: (v, m) {
             if (v == 0 || v == m.max) return const SizedBox.shrink();
-            return Padding(padding: const EdgeInsets.only(right: 4),
-              child: Text(_fmtY(v), style: const TextStyle(fontSize: 9, color: AppColors.textMuted), textAlign: TextAlign.right));
+            return Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(_fmtY(v),
+                  style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
+                  textAlign: TextAlign.right),
+            );
           },
         )),
         bottomTitles: AxisTitles(sideTitles: SideTitles(
-          showTitles: true, reservedSize: 20,
+          showTitles: true,
+          reservedSize: 20,
           getTitlesWidget: (v, m) {
             final i = v.toInt();
             if (i < 0 || i >= _chartPoints.length) return const SizedBox.shrink();
             if (_chartPeriod == 'daily' && i % 5 != 0) return const SizedBox.shrink();
-            return Padding(padding: const EdgeInsets.only(top: 4),
-              child: Text(_chartPoints[i].label, style: const TextStyle(fontSize: 9, color: AppColors.textMuted)));
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(_chartPoints[i].label,
+                  style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
+            );
           },
         )),
       ),
-      gridData: FlGridData(drawVerticalLine: false, horizontalInterval: maxY / 4,
-          getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.border, strokeWidth: 0.8)),
+      gridData: FlGridData(
+        drawVerticalLine: false,
+        horizontalInterval: maxY / 4,
+        getDrawingHorizontalLine: (_) =>
+            const FlLine(color: AppColors.border, strokeWidth: 0.8),
+      ),
       borderData: FlBorderData(show: false),
-      barTouchData: BarTouchData(touchTooltipData: BarTouchTooltipData(
-        getTooltipColor: (_) => AppColors.primaryDark,
-        tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        getTooltipItem: (group, _, rod, ri) {
-          final p = _chartPoints[group.x];
-          final isIncome = ri == 0;
-          return BarTooltipItem(
-            '${p.label}\n${isIncome ? 'Pendapatan' : 'Laba Bersih'}\n${rupiah(isIncome ? p.income : p.labaBersih)}',
-            const TextStyle(color: Colors.white, fontSize: 11, height: 1.5),
-          );
-        },
-      )),
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (_) => AppColors.primaryDark,
+          tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          getTooltipItems: (spots) {
+            final idx = spots.first.x.toInt();
+            if (idx < 0 || idx >= _chartPoints.length) {
+              return spots.map((_) => null).toList();
+            }
+            final p = _chartPoints[idx];
+            final laba = p.labaBersih;
+            return [
+              LineTooltipItem(
+                '📅 ${p.label}\n'
+                '💰 Pendapatan: ${rupiah(p.income)}\n'
+                '📦 Modal: ${rupiah(p.modal)}\n'
+                '🧾 Pengeluaran: ${rupiah(p.expenses)}\n'
+                '${laba >= 0 ? '✅ Laba Bersih' : '❌ Rugi'}: ${rupiah(laba)}',
+                TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  height: 1.7,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              // Titik kedua (laba) — tidak tampilkan tooltip sendiri
+              null,
+            ];
+          },
+        ),
+      ),
     ));
   }
 
@@ -676,7 +803,8 @@ class _ReportScreenState extends State<ReportScreen>
               borderRadius: BorderRadius.circular(99),
               border: Border.all(color: statusColor.withAlpha(100)),
             ),
-            child: Text(statusLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
+            child: Text(statusLabel,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
           ),
         ]),
         const SizedBox(height: 6),
@@ -687,7 +815,8 @@ class _ReportScreenState extends State<ReportScreen>
           _infoRow(Icons.badge_outlined, 'Oleh: ${t.createdByName}'),
         const Divider(height: 14),
         Row(children: [
-          Text(_fmtDateDisplay(t.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(_fmtDateDisplay(t.createdAt),
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
           const Spacer(),
           Text(rupiah(t.totalAmount),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.primaryDark)),
@@ -695,8 +824,11 @@ class _ReportScreenState extends State<ReportScreen>
           if (t.isPaid)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: AppColors.green.withAlpha(30), borderRadius: BorderRadius.circular(6)),
-              child: const Text('LUNAS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.green)),
+              decoration: BoxDecoration(
+                  color: AppColors.green.withAlpha(30),
+                  borderRadius: BorderRadius.circular(6)),
+              child: const Text('LUNAS',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.green)),
             ),
         ]),
       ]),
@@ -704,119 +836,59 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // TAB 3 — PEMBAYARAN
-  // ══════════════════════════════════════════════════════════════════════
-
-  Widget _buildPembayaran() {
-    return RefreshIndicator(
-      onRefresh: _loadPayments,
-      child: _payLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _payments.isEmpty
-              ? const EmptyState(message: 'Tidak ada pembayaran', icon: Icons.payments_outlined)
-              : Column(children: [
-                  if (_payments.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: AppCard(
-                        color: AppColors.primary.withAlpha(15),
-                        child: Row(children: [
-                          const Icon(Icons.payments, color: AppColors.primary, size: 20),
-                          const SizedBox(width: 10),
-                          const Text('Total', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-                          const Spacer(),
-                          Text(
-                            rupiah(_payments.fold(0.0, (s, p) => s + p.totalAmount)),
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.primary),
-                          ),
-                        ]),
-                      ),
-                    ),
-                  Expanded(
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _payments.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) => _payCard(_payments[i]),
-                    ),
-                  ),
-                ]),
-    );
-  }
-
-  Widget _payCard(PaymentReport p) {
-    return AppCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text(p.orderCode,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.green.withAlpha(30),
-              borderRadius: BorderRadius.circular(99),
-            ),
-            child: Text(
-              p.paymentMethod.toUpperCase(),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.green),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 6),
-        _infoRow(Icons.person_outline, p.customerName),
-        _infoRow(Icons.calendar_today_outlined, _fmtDateDisplay(p.paymentDate)),
-        const Divider(height: 14),
-        Row(children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Bayar', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-            Text(rupiah(p.paidAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-          ]),
-          const SizedBox(width: 20),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Kembalian', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-            Text(rupiah(p.changeAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
-          ]),
-          const Spacer(),
-          Text(rupiah(p.totalAmount),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.primaryDark)),
-        ]),
-      ]),
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // TAB 4 — STOK PRODUK
+  // TAB 3 — STOK PRODUK
   // ══════════════════════════════════════════════════════════════════════
 
   Widget _buildStok() {
+    final categories = _stocks.map((s) => s.categoryName).toSet().toList()..sort();
+    final list = _stockCategory == null
+        ? _stocks
+        : _stocks.where((s) => s.categoryName == _stockCategory).toList();
+
     return RefreshIndicator(
       onRefresh: _loadStock,
       child: _stockLoading
           ? const Center(child: CircularProgressIndicator())
-          : _stocks.isEmpty
-              ? const EmptyState(message: 'Tidak ada data stok', icon: Icons.inventory_2_outlined)
-              : Column(children: [
-                  // Legend stok
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: AppCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                        _stockLegend(AppColors.red, 'Kritis (≤5)'),
-                        _stockLegend(AppColors.orange, 'Rendah (≤10)'),
-                        _stockLegend(AppColors.green, 'Aman (>10)'),
-                      ]),
-                    ),
+          : Column(children: [
+              // Dropdown kategori
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: DropdownButtonFormField<String?>(
+                  initialValue: _stockCategory,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.category_outlined),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                  Expanded(
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _stocks.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) => _stockCard(_stocks[i]),
-                    ),
-                  ),
-                ]),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Semua Kategori')),
+                    ...categories.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                  ],
+                  onChanged: (v) => setState(() => _stockCategory = v),
+                ),
+              ),
+              // Legend
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: AppCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                    _stockLegend(AppColors.red, 'Kritis (≤5)'),
+                    _stockLegend(AppColors.orange, 'Rendah (≤10)'),
+                    _stockLegend(AppColors.green, 'Aman (>10)'),
+                  ]),
+                ),
+              ),
+              Expanded(
+                child: list.isEmpty
+                    ? const EmptyState(message: 'Tidak ada data stok', icon: Icons.inventory_2_outlined)
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) => _stockCard(list[i]),
+                      ),
+              ),
+            ]),
     );
   }
 
@@ -855,121 +927,6 @@ class _ReportScreenState extends State<ReportScreen>
         ]),
       ]),
     );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // TAB 5 — KEUNTUNGAN
-  // ══════════════════════════════════════════════════════════════════════
-
-  Widget _buildKeuntungan() {
-    return RefreshIndicator(
-      onRefresh: _loadSummary,
-      child: _summaryLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _summary == null
-              ? EmptyState(message: 'Gagal memuat data', icon: Icons.error_outline, buttonLabel: 'Coba Lagi', onButton: _loadSummary)
-              : SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const SectionTitle(title: 'Analisis Keuntungan'),
-                    const SizedBox(height: 12),
-                    // Big laba card
-                    AppCard(
-                      color: (_summary!.labaBersih >= 0 ? AppColors.green : AppColors.red).withAlpha(20),
-                      child: Column(children: [
-                        Text(
-                          _summary!.labaBersih >= 0 ? 'UNTUNG' : 'RUGI',
-                          style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                              color: _summary!.labaBersih >= 0 ? AppColors.green : AppColors.red),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(rupiah(_summary!.labaBersih.abs()),
-                            style: TextStyle(
-                                fontSize: 28, fontWeight: FontWeight.w900,
-                                color: _summary!.labaBersih >= 0 ? AppColors.green : AppColors.red)),
-                        const SizedBox(height: 2),
-                        const Text('Laba Bersih', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      ]),
-                    ),
-                    const SizedBox(height: 12),
-                    // Breakdown
-                    _profitRow('Pendapatan', _summary!.totalIncome, AppColors.primary, isAdd: true),
-                    _profitRow('Modal Produk', _summary!.totalModal, AppColors.orange, isAdd: false),
-                    _profitDivider('Laba Kotor', _summary!.labaKotor),
-                    _profitRow('Pengeluaran', _summary!.totalExpenses, AppColors.red, isAdd: false),
-                    _profitDivider('Laba Bersih', _summary!.labaBersih, bold: true),
-                    const SizedBox(height: 20),
-                    // Margin info
-                    if (_summary!.totalIncome > 0)
-                      AppCard(
-                        child: Column(children: [
-                          _marginRow('Margin Kotor',
-                              (_summary!.labaKotor / _summary!.totalIncome * 100)),
-                          const Divider(height: 16),
-                          _marginRow('Margin Bersih',
-                              (_summary!.labaBersih / _summary!.totalIncome * 100)),
-                        ]),
-                      ),
-                  ]),
-                ),
-    );
-  }
-
-  Widget _profitRow(String label, double value, Color color, {required bool isAdd}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: AppCard(
-        child: Row(children: [
-          Container(
-            width: 22, height: 22,
-            decoration: BoxDecoration(
-              color: color.withAlpha(30),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(isAdd ? '+' : '−',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: color)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary))),
-          Text(rupiah(value), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
-        ]),
-      ),
-    );
-  }
-
-  Widget _profitDivider(String label, double value, {bool bold = false}) {
-    final color = value >= 0 ? AppColors.green : AppColors.red;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: AppCard(
-        color: color.withAlpha(15),
-        child: Row(children: [
-          Text('= $label', style: TextStyle(
-              fontSize: bold ? 14 : 13,
-              fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
-              color: AppColors.textPrimary)),
-          const Spacer(),
-          Text(rupiah(value), style: TextStyle(
-              fontSize: bold ? 15 : 13,
-              fontWeight: FontWeight.w900,
-              color: color)),
-        ]),
-      ),
-    );
-  }
-
-  Widget _marginRow(String label, double pct) {
-    final color = pct >= 0 ? AppColors.green : AppColors.red;
-    return Row(children: [
-      Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
-      const Spacer(),
-      Text('${pct.toStringAsFixed(1)}%',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
-    ]);
   }
 
   // ── Shared helpers ─────────────────────────────────────────────────────

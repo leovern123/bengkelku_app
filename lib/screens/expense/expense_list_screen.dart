@@ -194,11 +194,11 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           const SizedBox(height: 4),
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'edit') { _openForm(e); } else if (v == 'delete') { _delete(e); }
+              if (v == 'update') { _openForm(e); } else if (v == 'delete') { _delete(e); }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'edit', child: Row(children: [
-                Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Edit'),
+              const PopupMenuItem(value: 'update', child: Row(children: [
+                Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Update'),
               ])),
               const PopupMenuItem(value: 'delete', child: Row(children: [
                 Icon(Icons.delete_outline, size: 18, color: AppColors.red), SizedBox(width: 8),

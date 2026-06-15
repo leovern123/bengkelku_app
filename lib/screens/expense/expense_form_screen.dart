@@ -40,12 +40,13 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedCategory = 'Lain-lain';
     final e = widget.expense;
     if (e != null) {
       _nameCtrl.text = e.expenseName;
       _amountCtrl.text = e.amount.toStringAsFixed(0);
       _noteCtrl.text = e.note ?? '';
-      _selectedCategory = e.expenseCategory;
+      _selectedCategory = e.expenseCategory ?? 'Lain-lain';
       if (e.expenseDate.isNotEmpty) {
         _selectedDate = DateTime.tryParse(e.expenseDate) ?? DateTime.now();
       }
@@ -131,7 +132,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEdit ? 'Edit Pengeluaran' : 'Tambah Pengeluaran')),
+      appBar: AppBar(title: Text(_isEdit ? 'Update Pengeluaran' : 'Tambah Pengeluaran')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -169,10 +170,8 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               initialValue: _selectedCategory,
-              hint: const Text('Pilih kategori (opsional)'),
               decoration: const InputDecoration(prefixIcon: Icon(Icons.category_outlined)),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList()
-                ..add(const DropdownMenuItem(value: null, child: Text('— Tanpa Kategori'))),
+              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
               onChanged: (v) => setState(() => _selectedCategory = v),
             ),
             const SizedBox(height: 16),
@@ -242,7 +241,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
             const SizedBox(height: 28),
 
             PrimaryButton(
-              label: _isEdit ? 'Simpan Perubahan' : 'Tambah Pengeluaran',
+              label: _isEdit ? 'Update Pengeluaran' : 'Tambah Pengeluaran',
               icon: _isEdit ? Icons.save_outlined : Icons.add,
               isLoading: _saving,
               onPressed: _save,
