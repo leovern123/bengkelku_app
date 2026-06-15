@@ -24,6 +24,16 @@ class _ItemListScreenState extends State<ItemListScreen> {
   String _tab = 'all';
   bool _isAdmin = false;
 
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -155,16 +165,31 @@ class _ItemListScreenState extends State<ItemListScreen> {
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
                                           const SizedBox(height: 2),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.price_change_outlined, size: 11, color: AppColors.textMuted),
-                                              const SizedBox(width: 3),
-                                              Text(
-                                                'Modal: ${rupiah(item.purchasePrice)}',
-                                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                                              ),
-                                            ],
-                                          ),
+                                          if (!item.isService) ...[
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.price_change_outlined, size: 11, color: AppColors.textMuted),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  'Modal: ${rupiah(item.purchasePrice)}',
+                                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                          if (item.updatedAt != null) ...[
+                                            const SizedBox(height: 2),
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.update_outlined, size: 11, color: AppColors.textMuted),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  'Update: ${_formatDate(item.updatedAt)}',
+                                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                           if (!item.isService && item.supplierId != null) ...[
                                             const SizedBox(height: 2),
                                             Row(
@@ -243,7 +268,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                                           }
                                         },
                                         itemBuilder: (_) => [
-                                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                          const PopupMenuItem(value: 'edit', child: Text('Update')),
                                           const PopupMenuItem(value: 'delete', child: Text('Hapus', style: TextStyle(color: Colors.red))),
                                         ],
                                       ),

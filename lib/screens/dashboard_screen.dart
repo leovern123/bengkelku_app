@@ -747,7 +747,10 @@ class _NotificationSheet extends StatelessWidget {
                 ),
                 if (hasAny)
                   TextButton.icon(
-                    onPressed: onDismissAll,
+                    onPressed: () {
+                      onDismissAll();
+                      _snack(context, 'Semua notifikasi dihapus');
+                    },
                     icon: const Icon(Icons.delete_sweep_rounded, size: 18),
                     label: const Text('Hapus Semua'),
                     style: TextButton.styleFrom(
@@ -795,10 +798,16 @@ class _NotificationSheet extends StatelessWidget {
                         key: ValueKey('stock-${s.itemId}'),
                         direction: DismissDirection.endToStart,
                         background: _dismissBg(),
-                        onDismissed: (_) => onDismissStock(s.itemId),
+                        onDismissed: (_) {
+                          onDismissStock(s.itemId);
+                          _snack(context, 'Notifikasi stok dihapus');
+                        },
                         child: _StockNotifTile(
                           stock: s,
-                          onDismiss: () => onDismissStock(s.itemId),
+                          onDismiss: () {
+                            onDismissStock(s.itemId);
+                            _snack(context, 'Notifikasi stok dihapus');
+                          },
                         ),
                       )),
                   const SizedBox(height: 16),
@@ -817,10 +826,16 @@ class _NotificationSheet extends StatelessWidget {
                         key: ValueKey('order-${o.orderId}'),
                         direction: DismissDirection.endToStart,
                         background: _dismissBg(),
-                        onDismissed: (_) => onDismissOrder(o.orderId),
+                        onDismissed: (_) {
+                          onDismissOrder(o.orderId);
+                          _snack(context, 'Notifikasi order dihapus');
+                        },
                         child: _OrderNotifTile(
                           order: o,
-                          onDismiss: () => onDismissOrder(o.orderId),
+                          onDismiss: () {
+                            onDismissOrder(o.orderId);
+                            _snack(context, 'Notifikasi order dihapus');
+                          },
                         ),
                       )),
                   const SizedBox(height: 16),
@@ -839,10 +854,16 @@ class _NotificationSheet extends StatelessWidget {
                         key: ValueKey('process-${o.orderId}'),
                         direction: DismissDirection.endToStart,
                         background: _dismissBg(),
-                        onDismissed: (_) => onDismissOrder(o.orderId),
+                        onDismissed: (_) {
+                          onDismissOrder(o.orderId);
+                          _snack(context, 'Notifikasi order dihapus');
+                        },
                         child: _OrderNotifTile(
                           order: o,
-                          onDismiss: () => onDismissOrder(o.orderId),
+                          onDismiss: () {
+                            onDismissOrder(o.orderId);
+                            _snack(context, 'Notifikasi order dihapus');
+                          },
                         ),
                       )),
                 ],
@@ -852,6 +873,19 @@ class _NotificationSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static void _snack(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+        const SizedBox(width: 8),
+        Text(msg),
+      ]),
+      backgroundColor: AppColors.green,
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   Widget _dismissBg() => Container(
