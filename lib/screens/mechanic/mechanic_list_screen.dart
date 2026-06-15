@@ -31,11 +31,24 @@ class _MechanicListScreenState extends State<MechanicListScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
-  List<MechanicModel> get _filtered => _all
-      .where((m) =>
-          m.mechanicName.toLowerCase().contains(_search.toLowerCase()) ||
-          (m.phoneNumber ?? '').contains(_search))
-      .toList();
+  List<MechanicModel> get _filtered => _all.where((m) {
+        final q = _search.toLowerCase();
+        if (q.isEmpty) return true;
+        return m.mechanicName.toLowerCase().contains(q) ||
+            (m.nik ?? '').contains(q) ||
+            (m.phoneNumber ?? '').contains(q) ||
+            (m.notes ?? '').toLowerCase().contains(q);
+      }).toList();
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
 
   Future<void> _delete(MechanicModel m) async {
     final ok = await showDialog<bool>(
@@ -79,9 +92,9 @@ class _MechanicListScreenState extends State<MechanicListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primaryDark,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Tambah Mekanik', style: TextStyle(color: Colors.white)),
-        onPressed: () => Navigator.push(
-                context,
+        label:
+            const Text('Tambah Mekanik', style: TextStyle(color: Colors.white)),
+        onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const MechanicFormScreen()))
             .then((_) => _load()),
       ),
@@ -90,7 +103,7 @@ class _MechanicListScreenState extends State<MechanicListScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
             child: AppSearchBar(
-                hint: 'Cari nama, spesialisasi...',
+                hint: 'Cari nama, NIK, telepon...',
                 onChanged: (v) => setState(() => _search = v)),
           ),
           const SizedBox(height: 14),
@@ -112,6 +125,7 @@ class _MechanicListScreenState extends State<MechanicListScreen> {
                                 const SizedBox(height: 10),
                             itemBuilder: (_, i) {
                               final m = _filtered[i];
+                              final dateStr = _formatDate(m.updatedAt);
                               return AppCard(
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
@@ -138,37 +152,97 @@ class _MechanicListScreenState extends State<MechanicListScreen> {
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.w900,
                                                   fontSize: 15,
-                                                  color:
-                                                      AppColors.textPrimary)),
-                                          if (m.phoneNumber != null)
+                                                  color: AppColors.textPrimary)),
+                                          if (m.nik != null && m.nik!.isNotEmpty)
                                             Padding(
                                               padding: const EdgeInsets.only(top: 2),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(Icons.phone_outlined, size: 12, color: AppColors.textMuted),
-                                                  const SizedBox(width: 4),
-                                                  Text(m.phoneNumber!, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                                                ],
-                                              ),
+                                              child: Row(children: [
+                                                const Icon(Icons.badge_outlined,
+                                                    size: 12,
+                                                    color: AppColors.textMuted),
+                                                const SizedBox(width: 4),
+                                                Text('NIK: ${m.nik!}',
+                                                    style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppColors.textMuted)),
+                                              ]),
+                                            ),
+                                          if (m.phoneNumber != null &&
+                                              m.phoneNumber!.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Row(children: [
+                                                const Icon(Icons.phone_outlined,
+                                                    size: 12,
+                                                    color: AppColors.textMuted),
+                                                const SizedBox(width: 4),
+                                                Text(m.phoneNumber!,
+                                                    style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppColors.textMuted)),
+                                              ]),
+                                            ),
+                                          if (m.notes != null &&
+                                              m.notes!.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Row(children: [
+                                                const Icon(Icons.notes_outlined,
+                                                    size: 12,
+                                                    color: AppColors.textMuted),
+                                                const SizedBox(width: 4),
+                                                Flexible(
+                                                  child: Text(m.notes!,
+                                                      style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: AppColors.textMuted),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis),
+                                                ),
+                                              ]),
+                                            ),
+                                          if (dateStr.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Row(children: [
+                                                const Icon(Icons.update_outlined,
+                                                    size: 12,
+                                                    color: AppColors.textMuted),
+                                                const SizedBox(width: 4),
+                                                Text('Update: $dateStr',
+                                                    style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: AppColors.textMuted)),
+                                              ]),
                                             ),
                                         ],
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit,
-                                          color: AppColors.textMuted, size: 20),
-                                      onPressed: () => Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      MechanicFormScreen(
-                                                          mechanic: m)))
-                                          .then((_) => _load()),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete,
-                                          color: AppColors.red, size: 20),
-                                      onPressed: () => _delete(m),
+                                    PopupMenuButton<String>(
+                                      onSelected: (val) async {
+                                        if (val == 'update') {
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (_) =>
+                                                    MechanicFormScreen(
+                                                        mechanic: m)),
+                                          );
+                                          _load();
+                                        } else if (val == 'delete') {
+                                          _delete(m);
+                                        }
+                                      },
+                                      itemBuilder: (_) => [
+                                        const PopupMenuItem(
+                                            value: 'update',
+                                            child: Text('Update')),
+                                        const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text('Hapus',
+                                                style: TextStyle(
+                                                    color: AppColors.red))),
+                                      ],
                                     ),
                                   ],
                                 ),

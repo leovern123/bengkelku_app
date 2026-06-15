@@ -16,7 +16,9 @@ class MechanicFormScreen extends StatefulWidget {
 class _MechanicFormScreenState extends State<MechanicFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _nikCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
   bool _loading = false;
 
   bool get isEdit => widget.mechanic != null;
@@ -26,14 +28,18 @@ class _MechanicFormScreenState extends State<MechanicFormScreen> {
     super.initState();
     if (isEdit) {
       _nameCtrl.text = widget.mechanic!.mechanicName;
+      _nikCtrl.text = widget.mechanic!.nik ?? '';
       _phoneCtrl.text = widget.mechanic!.phoneNumber ?? '';
+      _notesCtrl.text = widget.mechanic!.notes ?? '';
     }
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _nikCtrl.dispose();
     _phoneCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -58,8 +64,9 @@ class _MechanicFormScreenState extends State<MechanicFormScreen> {
     try {
       final data = {
         'mechanic_name': _nameCtrl.text.trim(),
-        if (_phoneCtrl.text.trim().isNotEmpty)
-          'phone_number': _phoneCtrl.text.trim(),
+        'nik': _nikCtrl.text.trim(),
+        'phone_number': _phoneCtrl.text.trim(),
+        'notes': _notesCtrl.text.trim(),
       };
 
       if (isEdit) {
@@ -87,7 +94,8 @@ class _MechanicFormScreenState extends State<MechanicFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Edit Mekanik' : 'Tambah Mekanik')),
+      appBar: AppBar(
+          title: Text(isEdit ? 'Update Mekanik' : 'Tambah Mekanik')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
         child: Form(
@@ -119,20 +127,50 @@ class _MechanicFormScreenState extends State<MechanicFormScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
+                      controller: _nikCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'NIK',
+                        prefixIcon: Icon(Icons.badge_outlined,
+                            color: AppColors.textMuted),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'NIK wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
-                        labelText: 'No. Telepon (opsional)',
+                        labelText: 'No. Telepon',
                         prefixIcon: Icon(Icons.phone_outlined,
                             color: AppColors.textMuted),
                       ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'No. telepon wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _notesCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Keterangan',
+                        prefixIcon: Icon(Icons.notes_outlined,
+                            color: AppColors.textMuted),
+                        alignLabelWithHint: true,
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Keterangan wajib diisi'
+                          : null,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               PrimaryButton(
-                label: isEdit ? 'Simpan Perubahan' : 'Tambah Mekanik',
+                label: isEdit ? 'Update Mekanik' : 'Tambah Mekanik',
                 icon: isEdit ? Icons.save : Icons.add,
                 isLoading: _loading,
                 onPressed: _submit,
