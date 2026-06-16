@@ -56,10 +56,13 @@ class OrderService {
     return OrderModel.fromJson(res.data['data']);
   }
 
-  static Future<OrderModel> cancel(String id) async {
+  static Future<OrderModel> cancel(String id, String cancelReason) async {
     final options = await ApiService.authOptions();
-    final res =
-        await ApiService.dio.post('/orders/$id/cancel', options: options);
+    final res = await ApiService.dio.post(
+      '/orders/$id/cancel',
+      data: {'cancel_reason': cancelReason},
+      options: options,
+    );
     return OrderModel.fromJson(res.data['data']);
   }
 

@@ -13,6 +13,7 @@ class OrderModel {
   final String userId;
   final String? mechanicId;
   final String orderStatus;
+  final String? cancelReason;
   final double totalAmount;
   final String? createdAt;
   final String? updatedAt;
@@ -31,6 +32,7 @@ class OrderModel {
     required this.userId,
     this.mechanicId,
     required this.orderStatus,
+    this.cancelReason,
     required this.totalAmount,
     this.createdAt,
     this.updatedAt,
@@ -50,6 +52,7 @@ class OrderModel {
         userId: json['user_id'],
         mechanicId: json['mechanic_id'],
         orderStatus: json['order_status'],
+        cancelReason: json['cancel_reason']?.toString(),
         totalAmount: double.parse(json['total_amount'].toString()),
         createdAt: json['created_at'],
         updatedAt: json['updated_at'],

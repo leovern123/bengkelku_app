@@ -52,23 +52,50 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _cancel() async {
-    final ok = await showDialog<bool>(
+    final reasonCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final reason = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Batalkan Order'),
-        content: const Text('Yakin membatalkan order ini? Stok item akan dikembalikan.'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Yakin membatalkan order ini? Stok item akan dikembalikan.'),
+              const SizedBox(height: 14),
+              const Text('Alasan Pembatalan *',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: reasonCtrl,
+                maxLines: 3,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: 'Tuliskan alasan pembatalan...'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Alasan wajib diisi' : null,
+              ),
+            ],
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Tidak')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tidak')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, reasonCtrl.text.trim());
+              }
+            },
             child: const Text('Ya, Batalkan', style: TextStyle(color: AppColors.red)),
           ),
         ],
       ),
     );
-    if (ok != true) return;
+    if (reason == null || reason.isEmpty) return;
     try {
-      await OrderService.cancel(_order.orderId);
+      await OrderService.cancel(_order.orderId, reason);
       _refresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -203,6 +230,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildHeader(),
+                    if (_order.isCancelled && (_order.cancelReason ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _buildCancelReason(),
+                    ],
                     const SizedBox(height: 14),
                     _buildInfo(),
                     const SizedBox(height: 14),
@@ -241,6 +272,32 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.primary)),
           ]),
           StatusPill(status: _order.orderStatus),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCancelReason() {
+    return AppCard(
+      color: AppColors.red.withAlpha(15),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: AppColors.red, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Alasan Pembatalan',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.red)),
+                const SizedBox(height: 3),
+                Text(_order.cancelReason!,
+                    style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+              ],
+            ),
+          ),
         ],
       ),
     );
