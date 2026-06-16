@@ -9,7 +9,6 @@ import '../services/report_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/notification_service.dart';
 import '../widgets/common.dart';
-import 'order/order_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -26,7 +25,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _process = 0;
   int _completed = 0;
   double _income = 0;
-  List<OrderModel> _recentOrders = [];
 
   // Notifications
   List<StockReport> _lowStock = [];
@@ -65,7 +63,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _pending = orders.where((o) => o.orderStatus == 'pending').length;
         _process = orders.where((o) => o.orderStatus == 'process').length;
         _completed = orders.where((o) => o.orderStatus == 'completed').length;
-        _recentOrders = orders.take(5).toList();
         _pendingOrders = orders.where((o) => o.orderStatus == 'pending').toList();
         _processOrders = orders.where((o) => o.orderStatus == 'process').toList();
         _loadingStats = false;
@@ -345,35 +342,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 20),
                   ],
 
-                  // ── Recent Orders ──────────────────────────────────────
-                  if (_recentOrders.isNotEmpty) ...[
-                    SectionTitle(
-                      title: 'Order Terbaru',
-                      action: TextButton(
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/orders'),
-                        child: const Text('Lihat Semua',
-                            style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12)),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ..._recentOrders.map((o) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _RecentOrderCard(
-                            order: o,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => OrderDetailScreen(order: o)),
-                            ).then((_) => _loadStats()),
-                          ),
-                        )),
-                    const SizedBox(height: 20),
-                  ],
-
                   // ── Menu Grid ──────────────────────────────────────────
                   const SectionTitle(title: 'Menu'),
                   const SizedBox(height: 12),
@@ -588,68 +556,6 @@ class _AlertBanner extends StatelessWidget {
                 color: AppColors.red, size: 20),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Recent Order Card ──────────────────────────────────────────────────────
-
-class _RecentOrderCard extends StatelessWidget {
-  final OrderModel order;
-  final VoidCallback onTap;
-
-  const _RecentOrderCard({required this.order, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = AppColors.statusColor(order.orderStatus);
-    return AppCard(
-      padding: const EdgeInsets.all(14),
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: statusColor.withAlpha(18),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.receipt_long_rounded, color: statusColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(order.orderCode,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-                const SizedBox(height: 2),
-                Text(
-                  order.customer?.customerName ?? order.customerId ?? '-',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textMuted),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              StatusPill(status: order.orderStatus),
-              const SizedBox(height: 4),
-              Text(rupiah(order.totalAmount),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      color: AppColors.primary)),
-            ],
-          ),
-        ],
       ),
     );
   }
