@@ -40,9 +40,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.dispose();
   }
 
+  bool get _isCash => _method == 'cash';
+
   void _calc() {
     final paid = double.tryParse(_paidCtrl.text) ?? 0;
     setState(() => _change = paid - widget.order.totalAmount);
+  }
+
+  void _selectMethod(String key) {
+    setState(() => _method = key);
+    if (key != 'cash') {
+      _paidCtrl.text = widget.order.totalAmount.toStringAsFixed(0);
+    }
   }
 
   Future<void> _submit() async {
@@ -141,7 +150,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       final active = _method == m['key'];
                       return Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => _method = m['key'] as String),
+                          onTap: () => _selectMethod(m['key'] as String),
                           child: Container(
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -172,33 +181,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   TextFormField(
                     controller: _paidCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
+                    readOnly: !_isCash,
+                    enabled: _isCash,
+                    decoration: InputDecoration(
                       labelText: 'Jumlah Bayar',
                       prefixText: 'Rp ',
+                      helperText: _isCash ? null : '',
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _change >= 0 ? AppColors.green.withAlpha(20) : AppColors.red.withAlpha(20),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _change >= 0 ? AppColors.green.withAlpha(80) : AppColors.red.withAlpha(80)),
+                  if (_isCash) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _change >= 0 ? AppColors.green.withAlpha(20) : AppColors.red.withAlpha(20),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _change >= 0 ? AppColors.green.withAlpha(80) : AppColors.red.withAlpha(80)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Kembalian', style: TextStyle(fontWeight: FontWeight.w700)),
+                          Text(
+                            rupiah(_change < 0 ? 0 : _change),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                                color: _change >= 0 ? AppColors.green : AppColors.red),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Kembalian', style: TextStyle(fontWeight: FontWeight.w700)),
-                        Text(
-                          rupiah(_change < 0 ? 0 : _change),
-                          style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                              color: _change >= 0 ? AppColors.green : AppColors.red),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
