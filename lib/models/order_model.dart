@@ -82,4 +82,5 @@ class OrderModel {
   bool get canAddItems => isService && (isPending || isProcess);
   bool get canProcess => isService && isPending;
   bool get canPay => isProcess && payment == null;
+  bool get canCancel => isPending;
 }

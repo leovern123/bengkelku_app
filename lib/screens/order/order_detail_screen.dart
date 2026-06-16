@@ -464,15 +464,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(height: 10),
         ],
         OutlinedButton.icon(
-          icon: const Icon(Icons.cancel_outlined, color: AppColors.red),
-          label: const Text('Batalkan Order', style: TextStyle(color: AppColors.red)),
+          icon: Icon(Icons.cancel_outlined,
+              color: _order.canCancel ? AppColors.red : AppColors.textMuted),
+          label: Text('Batalkan Order',
+              style: TextStyle(color: _order.canCancel ? AppColors.red : AppColors.textMuted)),
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.red),
+            side: BorderSide(color: _order.canCancel ? AppColors.red : AppColors.border),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          onPressed: _cancel,
+          onPressed: _order.canCancel ? _cancel : null,
         ),
+        if (!_order.canCancel && !_order.isCompleted && !_order.isCancelled)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('Order yang sedang diproses tidak dapat dibatalkan',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          ),
       ],
     );
   }
