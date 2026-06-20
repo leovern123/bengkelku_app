@@ -607,10 +607,15 @@ class _AddItemSheetState extends State<_AddItemSheet> {
     });
   }
 
+  bool _isOutOfStock(ItemModel item) => item.stock != null && item.stock! <= 0;
+
   void _tapItem(ItemModel item) {
+    if (_isOutOfStock(item)) return;
     setState(() {
       if (_cart.containsKey(item.itemId)) {
         final current = _cart[item.itemId]!;
+        final maxQty = item.stock ?? current.value + 1;
+        if (current.value + 1 > maxQty) return;
         _cart[item.itemId] = MapEntry(item, current.value + 1);
       } else {
         _cart[item.itemId] = MapEntry(item, 1);
@@ -623,7 +628,9 @@ class _AddItemSheetState extends State<_AddItemSheet> {
       if (qty <= 0) {
         _cart.remove(itemId);
       } else {
-        _cart[itemId] = MapEntry(_cart[itemId]!.key, qty);
+        final item = _cart[itemId]!.key;
+        if (item.stock != null && qty > item.stock!) return;
+        _cart[itemId] = MapEntry(item, qty);
       }
     });
   }
@@ -714,42 +721,59 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                       final item = _filtered[i];
                       final inCart = _cart.containsKey(item.itemId);
                       final qty = inCart ? _cart[item.itemId]!.value : 0;
+                      final outOfStock = _isOutOfStock(item);
+                      final atMaxStock = item.stock != null && qty >= item.stock!;
                       return AppCard(
                         padding: const EdgeInsets.all(12),
-                        color: inCart ? AppColors.primary.withAlpha(12) : AppColors.card,
+                        color: outOfStock
+                            ? AppColors.border.withAlpha(60)
+                            : (inCart ? AppColors.primary.withAlpha(12) : AppColors.card),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: (item.isService ? AppColors.orange : AppColors.primary).withAlpha(20),
+                                color: (item.isService ? AppColors.orange : AppColors.primary)
+                                    .withAlpha(outOfStock ? 8 : 20),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
                                 item.isService ? Icons.build : Icons.inventory_2,
                                 size: 18,
-                                color: item.isService ? AppColors.orange : AppColors.primary,
+                                color: outOfStock
+                                    ? AppColors.textMuted
+                                    : (item.isService ? AppColors.orange : AppColors.primary),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => _tapItem(item),
+                                onTap: outOfStock ? null : () => _tapItem(item),
                                 behavior: HitTestBehavior.opaque,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(item.itemName,
-                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                            color: outOfStock ? AppColors.textMuted : AppColors.textPrimary)),
                                     Text(
-                                      '${rupiah(item.sellingPrice)}${item.stock != null ? ' • Stok: ${item.stock}' : ' • Jasa'}',
-                                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                      outOfStock
+                                          ? '${rupiah(item.sellingPrice)} • Stok Habis'
+                                          : '${rupiah(item.sellingPrice)}${item.stock != null ? ' • Stok: ${item.stock}' : ' • Jasa'}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: outOfStock ? AppColors.red : AppColors.textMuted,
+                                          fontWeight: outOfStock ? FontWeight.w600 : FontWeight.normal),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                            if (inCart) ...[
+                            if (outOfStock)
+                              const Icon(Icons.block, color: AppColors.textMuted, size: 24)
+                            else if (inCart) ...[
                               GestureDetector(
                                 onTap: () => _setQty(item.itemId, qty - 1),
                                 child: const Icon(Icons.remove_circle, color: AppColors.red, size: 26),
@@ -760,8 +784,9 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                                     style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                               ),
                               GestureDetector(
-                                onTap: () => _setQty(item.itemId, qty + 1),
-                                child: const Icon(Icons.add_circle, color: AppColors.primary, size: 26),
+                                onTap: atMaxStock ? null : () => _setQty(item.itemId, qty + 1),
+                                child: Icon(Icons.add_circle,
+                                    color: atMaxStock ? AppColors.textMuted : AppColors.primary, size: 26),
                               ),
                             ] else
                               GestureDetector(

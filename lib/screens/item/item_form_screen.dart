@@ -61,7 +61,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       _purchasePriceCtrl.text = item.purchasePrice.toInt().toString();
       _sellingPriceCtrl.text = item.sellingPrice.toInt().toString();
       _stockCtrl.text = item.stock?.toString() ?? '';
-      _selectedTypeId = item.itemTypeId ?? widget.defaultTypeId;
+      _selectedTypeId = item.itemTypeId ?? (item.isService ? 2 : 1);
       _selectedCategoryId = item.itemCategoryId;
       _selectedSupplierId = item.supplierId;
     } else {

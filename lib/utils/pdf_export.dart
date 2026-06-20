@@ -6,8 +6,8 @@ import '../models/order_model.dart';
 import '../models/payment_model.dart';
 
 // ── Color palette (matches AppColors) ─────────────────────────────────────
-const _primary = PdfColor.fromInt(0xFF075FD8);
-const _primaryDark = PdfColor.fromInt(0xFF06469D);
+const _primary = PdfColor.fromInt(0xFF0B2545);
+const _primaryDark = PdfColor.fromInt(0xFF071A33);
 const _orange = PdfColor.fromInt(0xFFFF8A00);
 const _green = PdfColor.fromInt(0xFF16A34A);
 const _red = PdfColor.fromInt(0xFFDC2626);

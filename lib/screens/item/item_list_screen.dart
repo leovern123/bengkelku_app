@@ -242,7 +242,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                                       PopupMenuButton<String>(
                                         onSelected: (val) async {
                                           if (val == 'edit') {
-                                            final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => ItemFormScreen(item: item)));
+                                            final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => ItemFormScreen(item: item, defaultTypeId: item.isService ? 2 : 1)));
                                             if (res == true) _load();
                                           } else if (val == 'delete') {
                                             final confirm = await showDialog<bool>(
