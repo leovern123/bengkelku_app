@@ -85,6 +85,33 @@ class _MechanicListScreenState extends State<MechanicListScreen> {
     }
   }
 
+  Widget _buildAvatar(MechanicModel m) {
+    if (m.photoUrl != null && m.photoUrl!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          m.photoUrl!,
+          width: 48,
+          height: 48,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _defaultAvatar(),
+        ),
+      );
+    }
+    return _defaultAvatar();
+  }
+
+  Widget _defaultAvatar() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.primaryDark.withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(Icons.engineering, color: AppColors.primaryDark, size: 24),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,18 +157,7 @@ class _MechanicListScreenState extends State<MechanicListScreen> {
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primaryDark
-                                            .withAlpha(20),
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                      ),
-                                      child: const Icon(Icons.engineering,
-                                          color: AppColors.primaryDark,
-                                          size: 24),
-                                    ),
+                                    _buildAvatar(m),
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Column(
