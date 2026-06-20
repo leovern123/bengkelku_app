@@ -858,6 +858,88 @@ class _ReportScreenState extends State<ReportScreen>
   // TAB 3 — STOK PRODUK
   // ══════════════════════════════════════════════════════════════════════
 
+  void _showCategoryPicker(List<String> categories) {
+    String search = '';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setModal) {
+          final filtered = categories
+              .where((c) => c.toLowerCase().contains(search.toLowerCase()))
+              .toList();
+          return DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.4,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (_, scrollCtrl) => Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Pilih Kategori',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Cari kategori...',
+                      prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    onChanged: (v) => setModal(() => search = v),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView(
+                    controller: scrollCtrl,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.all_inclusive, color: AppColors.primary),
+                        title: const Text('Semua Kategori'),
+                        selected: _stockCategory == null,
+                        selectedColor: AppColors.primary,
+                        onTap: () {
+                          setState(() => _stockCategory = null);
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ...filtered.map((c) => ListTile(
+                            leading: const Icon(Icons.category_outlined, color: AppColors.textMuted),
+                            title: Text(c),
+                            selected: _stockCategory == c,
+                            selectedColor: AppColors.primary,
+                            onTap: () {
+                              setState(() => _stockCategory = c);
+                              Navigator.pop(ctx);
+                            },
+                          )),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
   Widget _buildStok() {
     final categories = _stocks.map((s) => s.categoryName).toSet().toList()..sort();
     final list = _stockCategory == null
@@ -869,20 +951,38 @@ class _ReportScreenState extends State<ReportScreen>
       child: _stockLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
-              // Dropdown kategori
+              // Dropdown kategori (dengan search di dalam)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: DropdownButtonFormField<String?>(
-                  initialValue: _stockCategory,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.category_outlined),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: GestureDetector(
+                  onTap: () => _showCategoryPicker(categories),
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.category_outlined),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_stockCategory != null)
+                              GestureDetector(
+                                onTap: () => setState(() => _stockCategory = null),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4),
+                                  child: Icon(Icons.close, size: 18, color: AppColors.textMuted),
+                                ),
+                              ),
+                            const Icon(Icons.keyboard_arrow_down, size: 20),
+                            const SizedBox(width: 8),
+                          ],
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      controller: TextEditingController(
+                        text: _stockCategory ?? 'Semua Kategori',
+                      ),
+                    ),
                   ),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Semua Kategori')),
-                    ...categories.map((c) => DropdownMenuItem(value: c, child: Text(c))),
-                  ],
-                  onChanged: (v) => setState(() => _stockCategory = v),
                 ),
               ),
               // Legend
