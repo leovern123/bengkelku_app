@@ -607,7 +607,10 @@ class _AddItemSheetState extends State<_AddItemSheet> {
     });
   }
 
-  bool _isOutOfStock(ItemModel item) => item.stock != null && item.stock! <= 0;
+  bool _isOutOfStock(ItemModel item) {
+    final qtyInCart = _cart[item.itemId]?.value ?? 0;
+    return item.stock != null && (item.stock! - qtyInCart) <= 0;
+  }
 
   void _tapItem(ItemModel item) {
     if (_isOutOfStock(item)) return;
@@ -721,8 +724,9 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                       final item = _filtered[i];
                       final inCart = _cart.containsKey(item.itemId);
                       final qty = inCart ? _cart[item.itemId]!.value : 0;
-                      final outOfStock = _isOutOfStock(item);
-                      final atMaxStock = item.stock != null && qty >= item.stock!;
+                      final effectiveStock = item.stock != null ? item.stock! - qty : null;
+                      final outOfStock = effectiveStock != null && effectiveStock <= 0;
+                      final atMaxStock = effectiveStock != null && effectiveStock <= 0;
                       return AppCard(
                         padding: const EdgeInsets.all(12),
                         color: outOfStock
@@ -761,7 +765,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                                     Text(
                                       outOfStock
                                           ? '${rupiah(item.sellingPrice)} • Stok Habis'
-                                          : '${rupiah(item.sellingPrice)}${item.stock != null ? ' • Stok: ${item.stock}' : ' • Jasa'}',
+                                          : '${rupiah(item.sellingPrice)}${effectiveStock != null ? ' • Stok: $effectiveStock' : ' • Jasa'}',
                                       style: TextStyle(
                                           fontSize: 12,
                                           color: outOfStock ? AppColors.red : AppColors.textMuted,
@@ -773,6 +777,32 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                             ),
                             if (outOfStock)
                               const Icon(Icons.block, color: AppColors.textMuted, size: 24)
+                            else if (item.isService)
+                              GestureDetector(
+                                onTap: () => setState(() {
+                                  if (inCart) {
+                                    _cart.remove(item.itemId);
+                                  } else {
+                                    _cart[item.itemId] = MapEntry(item, 1);
+                                  }
+                                }),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: inCart ? AppColors.orange : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: inCart ? AppColors.orange : AppColors.textMuted,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: inCart
+                                      ? const Icon(Icons.check, color: Colors.white, size: 16)
+                                      : null,
+                                ),
+                              )
                             else if (inCart) ...[
                               GestureDetector(
                                 onTap: () => _setQty(item.itemId, qty - 1),
