@@ -134,6 +134,12 @@ class _OrderListScreenState extends State<OrderListScreen> {
                                                   fontWeight: FontWeight.w800,
                                                   fontSize: 13,
                                                   color: AppColors.primary)),
+                                          Text(
+                                            o.createdAt?.substring(0, 10) ?? '',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textMuted),
+                                          ),
                                         ],
                                       ),
                                     ),

@@ -27,6 +27,7 @@ class _ReportScreenState extends State<ReportScreen>
 
   List<TransactionReport> _transactions = [];
   bool _txLoading = true;
+  String _txFilter = 'all';
 
   List<StockReport> _stocks = [];
   bool _stockLoading = true;
@@ -791,19 +792,76 @@ class _ReportScreenState extends State<ReportScreen>
   // TAB 2 — TRANSAKSI
   // ══════════════════════════════════════════════════════════════════════
 
+  List<TransactionReport> get _txFiltered {
+    switch (_txFilter) {
+      case 'pending':
+        return _transactions.where((t) => t.orderStatus == 'pending').toList();
+      case 'process':
+        return _transactions.where((t) => t.orderStatus == 'process').toList();
+      case 'lunas':
+        return _transactions.where((t) => t.isPaid).toList();
+      default:
+        return _transactions;
+    }
+  }
+
   Widget _buildTransaksi() {
+    final list = _txFiltered;
     return RefreshIndicator(
       onRefresh: _loadTransactions,
       child: _txLoading
           ? const Center(child: CircularProgressIndicator())
-          : _transactions.isEmpty
-              ? const EmptyState(message: 'Tidak ada transaksi', icon: Icons.receipt_long_outlined)
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _transactions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _txCard(_transactions[i]),
+          : Column(children: [
+              // Filter chips
+              Container(
+                color: AppColors.card,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    _txChip('all', 'Semua', AppColors.primary),
+                    const SizedBox(width: 8),
+                    _txChip('pending', 'Pending', AppColors.primary),
+                    const SizedBox(width: 8),
+                    _txChip('process', 'Diproses', AppColors.orange),
+                    const SizedBox(width: 8),
+                    _txChip('lunas', 'Lunas', AppColors.green),
+                  ]),
                 ),
+              ),
+              Expanded(
+                child: list.isEmpty
+                    ? const EmptyState(message: 'Tidak ada transaksi', icon: Icons.receipt_long_outlined)
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) => _txCard(list[i]),
+                      ),
+              ),
+            ]),
+    );
+  }
+
+  Widget _txChip(String key, String label, Color color) {
+    final active = _txFilter == key;
+    return GestureDetector(
+      onTap: () => setState(() => _txFilter = key),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: active ? color : AppColors.border),
+        ),
+        child: Text(label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: active ? Colors.white : AppColors.textMuted,
+            )),
+      ),
     );
   }
 
