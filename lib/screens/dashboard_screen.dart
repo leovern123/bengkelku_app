@@ -131,7 +131,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
 
   void _dismissAllAlerts() => setState(() {
-        _lowStock.clear();
         _pendingOrders.clear();
         _processOrders.clear();
       });
@@ -655,6 +654,7 @@ class _NotificationSheet extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () {
                       onDismissAll();
+                      Navigator.pop(context);
                       _snack(context, 'Semua notifikasi dihapus');
                     },
                     icon: const Icon(Icons.delete_sweep_rounded, size: 18),
@@ -708,13 +708,7 @@ class _NotificationSheet extends StatelessWidget {
                           onDismissStock(s.itemId);
                           _snack(context, 'Notifikasi stok dihapus');
                         },
-                        child: _StockNotifTile(
-                          stock: s,
-                          onDismiss: () {
-                            onDismissStock(s.itemId);
-                            _snack(context, 'Notifikasi stok dihapus');
-                          },
-                        ),
+                        child: _StockNotifTile(stock: s),
                       )),
                   const SizedBox(height: 16),
                 ],
@@ -736,13 +730,7 @@ class _NotificationSheet extends StatelessWidget {
                           onDismissOrder(o.orderId);
                           _snack(context, 'Notifikasi order dihapus');
                         },
-                        child: _OrderNotifTile(
-                          order: o,
-                          onDismiss: () {
-                            onDismissOrder(o.orderId);
-                            _snack(context, 'Notifikasi order dihapus');
-                          },
-                        ),
+                        child: _OrderNotifTile(order: o),
                       )),
                   const SizedBox(height: 16),
                 ],
@@ -764,13 +752,7 @@ class _NotificationSheet extends StatelessWidget {
                           onDismissOrder(o.orderId);
                           _snack(context, 'Notifikasi order dihapus');
                         },
-                        child: _OrderNotifTile(
-                          order: o,
-                          onDismiss: () {
-                            onDismissOrder(o.orderId);
-                            _snack(context, 'Notifikasi order dihapus');
-                          },
-                        ),
+                        child: _OrderNotifTile(order: o),
                       )),
                 ],
               ],
@@ -838,8 +820,7 @@ class _NotifSection extends StatelessWidget {
 
 class _StockNotifTile extends StatelessWidget {
   final StockReport stock;
-  final VoidCallback? onDismiss;
-  const _StockNotifTile({required this.stock, this.onDismiss});
+  const _StockNotifTile({required this.stock});
 
   @override
   Widget build(BuildContext context) {
@@ -893,14 +874,6 @@ class _StockNotifTile extends StatelessWidget {
                   fontWeight: FontWeight.w800),
             ),
           ),
-          if (onDismiss != null)
-            GestureDetector(
-              onTap: onDismiss,
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(6, 0, 4, 0),
-                child: Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
-              ),
-            ),
         ],
       ),
     );
@@ -909,8 +882,7 @@ class _StockNotifTile extends StatelessWidget {
 
 class _OrderNotifTile extends StatelessWidget {
   final OrderModel order;
-  final VoidCallback? onDismiss;
-  const _OrderNotifTile({required this.order, this.onDismiss});
+  const _OrderNotifTile({required this.order});
 
   @override
   Widget build(BuildContext context) {
@@ -957,14 +929,6 @@ class _OrderNotifTile extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   fontSize: 12,
                   color: AppColors.textPrimary)),
-          if (onDismiss != null)
-            GestureDetector(
-              onTap: onDismiss,
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(6, 0, 4, 0),
-                child: Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
-              ),
-            ),
         ],
       ),
     );
